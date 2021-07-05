@@ -32,12 +32,12 @@
  *
  */
 
-#include "dev/button-sensor.h"
+// #include "dev/button-sensor.h"
 
-SENSORS(&button_sensor);
+// SENSORS(&button_sensor);
 
 void
 init_platform(void)
 {
-  process_start(&sensors_process, NULL);
+  // process_start(&sensors_process, NULL);
 }

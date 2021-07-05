@@ -1,0 +1,524 @@
+#include "stdio.h"
+
+#include "contiki.h"
+#include "node-id.h"
+
+#include "net/packetbuf.h"
+#include "lib/memb.h"
+
+#include "services/testbed/testbed.h"
+
+#include "sys/log.h"
+#define LOG_MODULE "TESTBED"
+#define LOG_LEVEL LOG_LEVEL_INFO
+
+/* Data structures to hold node roles. It is possible to set these
+   manually, or let the testbed set them from the config. */
+#ifdef TB_CONF_SOURCES
+TB_SOURCES(TB_CONF_SOURCES)
+#else
+static uint8_t tb_sources[TB_MAX_SRC_DEST]      = {0};
+#endif
+
+#ifdef TB_CONF_DESTINATIONS
+TB_DESTINATIONS(TB_CONF_DESTINATIONS)
+#else
+static uint8_t tb_destinations[TB_MAX_SRC_DEST] = {0};
+#endif
+
+#ifdef TB_CONF_FORWARDERS
+TB_FORWARDERS(TB_CONF_FORWARDERS)
+// #else
+// static uint8_t tb_forwarders[TB_MAX_SRC_DEST]   = {0};
+#endif
+
+/* Externs */
+uint8_t tb_pattern_id, tb_node_type, tb_num_src, tb_num_dst, tb_num_fwd, tb_msg_len;
+
+/* Buffers */
+static uint8_t tb_rx_fifo[TB_RX_FIFO_LEN][MAX_TB_PACKET_LEN] = {{0}};
+static uint8_t tb_rx_fifo_pos = 0;
+static uint8_t tb_tx_fifo[TB_TX_FIFO_LEN][MAX_TB_PACKET_LEN] = {{0}};
+static uint8_t tb_tx_fifo_pos = 0;
+
+// Each source node is connected via software I2C to an EEPROM that contains the raw
+// sensor values to be transmitted to one or multiple (at most eight) destination nodes.
+// [...] signals the availability of new data to be sent in the EEPROM by toggling a pre-defined GPIO pin.
+volatile uint8_t gpio_event = 0;
+
+/*---------------------------------------------------------------------------*/
+/* EEPROM */
+/*---------------------------------------------------------------------------*/
+PROCESS(dc_eeprom_reader_process, "DCUBE EEPROM reader");
+PROCESS(dc_eeprom_writer_process, "DCUBE EEPROM writer");
+
+static void print_traffic_pattern(volatile tb_pattern_t* p);
+static void print_config(volatile tb_config_t* cfg);
+static void print_custom_config(void);
+
+/*---------------------------------------------------------------------------*/
+/* Scenario Configuration */
+/*---------------------------------------------------------------------------*/
+// Get the full depcomp configuration struct
+volatile tb_config_t *
+tb_get_config(void)
+{
+  return &dc_cfg;
+}
+
+/*---------------------------------------------------------------------------*/
+// Get the current traffic pattern for this node
+volatile tb_pattern_t *
+tb_get_pattern(void)
+{
+  return &dc_cfg.patterns[tb_pattern_id];
+}
+
+/*---------------------------------------------------------------------------*/
+uint8_t
+tb_get_n_src(void)
+{
+// FIXME: Hack until I can think of a better way to get number of sources to nulltb
+#if TB_CONF_SOURCES
+  return TB_N_SOURCES;
+#else
+  return tb_num_src;
+#endif
+}
+
+/*---------------------------------------------------------------------------*/
+uint8_t *
+tb_get_sources(void)
+{
+  return tb_sources;
+}
+
+/*---------------------------------------------------------------------------*/
+uint8_t
+tb_get_n_dest(void)
+{
+  // FIXME: Hack until I can think of a better way to get number of destinations to nulltb
+  #if TB_CONF_DESTINATIONS
+    return TB_N_DESTINATIONS;
+  #else
+    return tb_num_dst;
+  #endif
+}
+
+/*---------------------------------------------------------------------------*/
+uint8_t *
+tb_get_destinations(void)
+{
+  return tb_destinations;
+}
+
+/*---------------------------------------------------------------------------*/
+uint8_t
+tb_get_node_type(void)
+{
+  return tb_node_type;
+}
+
+/*---------------------------------------------------------------------------*/
+// Sets all local dc variables (tb_pattern_id, node_type, sources, etc.). Returns
+// the id of the pattern the node is active in.
+// NB: Patterns are currently UNIQUE, i.e. a node will only have ONE role in a
+// SINGLE pattern.
+static uint8_t
+get_pattern_info()
+{
+  uint8_t i, j, ret = 0, found = 0;
+
+  for(i = 0; i < TB_NUMPATTERN; i++) {
+    if(!dc_cfg.patterns[i].traffic_pattern) {
+      continue;
+    }
+#ifdef TB_CONF_SOURCES
+      LOG_WARN(" > Using preset SRCs (x%u)\n", TB_N_SOURCES);
+      for(j=0; j < TB_N_SOURCES; j++) {
+        tb_num_src++;
+        // check to see we are participating
+        if(tb_sources[j] == node_id) {
+          found = 1;
+          tb_node_type = NODE_TYPE_SOURCE;
+          // leds_on(0x08); // LED2
+        }
+      }
+#else
+    for(j = 0; j < TB_MAX_SRC_DEST; j++) {
+      if(dc_cfg.patterns[i].source_id[j]) {
+        tb_sources[tb_num_src] = dc_cfg.patterns[i].source_id[j];
+        tb_num_src++;
+      }
+      if(dc_cfg.patterns[i].source_id[j] == node_id) {
+        // first check if we are a source
+        tb_node_type = NODE_TYPE_SOURCE;
+        ret = i;
+        found = 1;
+        // leds_on(0x08); // LED2
+      }
+    }
+#endif
+
+#ifdef TB_CONF_DESTINATIONS
+    LOG_WARN(" > Using preset DSTs (x%u)\n", TB_N_DESTINATIONS);
+    for(j=0; j < TB_N_DESTINATIONS; j++) {
+      tb_num_dst++;
+      // check to see we are participating
+      if(tb_destinations[j] == node_id) {
+        found = 1;
+        tb_node_type = NODE_TYPE_DESTINATION;
+        // leds_on(0x06); // LED4
+      }
+    }
+#else
+    for(j = 0; j < TB_MAX_SRC_DEST; j++) {
+      // destinations
+      if(dc_cfg.patterns[i].destination_id[j]) {
+        tb_destinations[tb_num_dst] = dc_cfg.patterns[i].destination_id[j];
+        tb_num_dst++;
+      }
+      if(dc_cfg.patterns[i].destination_id[j] == node_id) {
+        // then check if we are a destination
+        tb_node_type = NODE_TYPE_DESTINATION;
+        ret = i;
+        found = 1;
+        // leds_on(0x06); // LED4
+      }
+    }
+#endif
+  }
+#ifdef TB_CONF_FORWARDERS
+  LOG_WARN(" > Using preset FWDs (x%u)\n", TB_N_FORWARDERS);
+  for(i =0; i < TB_N_FORWARDERS; i++) {
+    tb_num_fwd++;
+    // check to see we are participating
+    if(tb_forwarders[i] == node_id) {
+      found = 1;
+      tb_node_type = NODE_TYPE_FORWARDER;
+    }
+  }
+  if(!found) {
+    // neither a source or a destination not a forwarder - so we are nothing
+    tb_node_type = NODE_TYPE_NONE;
+  }
+#else
+  if(!found) {
+    // neither a source or a destination - so we must be a forwarder
+    tb_node_type = NODE_TYPE_FORWARDER;
+    tb_num_fwd++;
+  }
+#endif
+
+  return ret;
+}
+
+/*---------------------------------------------------------------------------*/
+/* API */
+/*---------------------------------------------------------------------------*/
+static uint8_t
+init()
+{
+  LOG_INFO("Starting %s Testbed...\n", TB_TO_STR(TESTBED));
+  /* Configure the testbed pattern */
+  LOG_INFO("- Configuring e2...\n");
+  eeprom.config();
+  /* Parse the pattern config  */
+  LOG_INFO("- Get traffic pattern...\n");
+  tb_pattern_id = get_pattern_info();
+  /* If we are not participating as a source, destination, or forwarder, then
+     we should quit contiki. */
+  if(tb_get_node_type() == NODE_TYPE_NONE) {
+    LOG_ERR("We have no node type (SRC/DEST/FWD)! Quit Contiki!\n");
+    return 0;
+  }
+  /* Init I2C for sources and destinations to read/write EEPROM */
+  LOG_INFO("- Init I2C...\n");
+  eeprom.init();
+
+  tb_msg_len = dc_cfg.patterns[tb_pattern_id].msg_length;
+
+  if(tb_node_type == NODE_TYPE_SOURCE) {
+    // only source nodes need to handle the event GPIO
+    process_start(&dc_eeprom_reader_process, NULL);
+  } else if(tb_node_type == NODE_TYPE_DESTINATION) {
+    // destinations need to write received packets
+    process_start(&dc_eeprom_writer_process, NULL);
+  }
+
+  // LOG_INFO("- E2 Settle Time... %u\n", GLOSSY_RTIMER_TO_MS(EEPROM_SETTLE_TIME));
+  print_config(&dc_cfg);
+  print_custom_config();
+  LOG_INFO("Finished %s testbed setup: " \
+    "tb_pattern_id: %u msg_len:%u node_type: %s num src: %d num dst: %d\n",
+    TB_TO_STR(TESTBED), tb_pattern_id, tb_msg_len,
+    NODE_TYPE_TO_STR(tb_node_type), tb_num_src, tb_num_dst);
+
+  return 1;
+}
+
+/*---------------------------------------------------------------------------*/
+// Push a packet to be written to the testbed EEPROM
+static uint8_t
+push(uint8_t *rx_pkt, uint8_t len)
+{
+  if(tb_tx_fifo_pos >= TB_TX_FIFO_LEN) {
+    // atm_log_str("E2-W FIFO FULL!\n");  // overflow
+    LOG_ERR("E2-W FIFO FULL!\n");
+    return 0;
+  }
+  memcpy(tb_tx_fifo[tb_tx_fifo_pos], rx_pkt, len);
+  tb_tx_fifo_pos++;
+  LOG_DBG("E2-T++ %u\n", tb_tx_fifo_pos);
+  return tb_tx_fifo_pos;
+}
+
+/*---------------------------------------------------------------------------*/
+// Pop a packet for transmission from the testbed EEPROM
+static uint8_t
+pop(uint8_t **dest, uint8_t *len)
+{
+  if(tb_rx_fifo_pos == 0) {
+    LOG_ERR("E2-R FIFO FULL!\n");
+    return 0;
+  }
+  *len = tb_msg_len;
+  tb_rx_fifo_pos--;
+  LOG_DBG("E2-R-- %u\n", tb_rx_fifo_pos);
+  // avoid doing memcpy (faster)
+  *dest = (uint8_t*) &tb_rx_fifo[tb_rx_fifo_pos];
+  return tb_rx_fifo_pos + 1;
+}
+
+/*---------------------------------------------------------------------------*/
+static void
+poll_read()
+{
+  process_poll(&dc_eeprom_reader_process);
+}
+
+/*---------------------------------------------------------------------------*/
+static void
+poll_write()
+{
+  process_poll(&dc_eeprom_writer_process);
+}
+
+/*---------------------------------------------------------------------------*/
+void
+tb_register_read_callback(tb_read_callback cb)
+{
+  testbed.read_callback = cb;
+}
+
+/*---------------------------------------------------------------------------*/
+struct testbed_driver testbed = {
+  init,
+  push,
+  pop,
+  poll_read,
+  poll_write,
+  NULL
+};
+
+/*---------------------------------------------------------------------------*/
+/* Read Process */
+/*---------------------------------------------------------------------------*/
+// Will be woken up from a GPIO interrupt on the testbed
+// alternatively, provide test data when running locally
+PROCESS_THREAD(dc_eeprom_reader_process, ev, data)
+{
+  PROCESS_BEGIN();
+
+  LOG_INFO("- Started E2-R dc_eeprom_reader_process\n");
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
+
+    if(!eeprom.event()) {
+      continue;
+    }
+
+    // LOG_DBG("E2-R %u/%u\n", tb_rx_fifo_pos, TB_RX_FIFO_LEN);
+
+    if(tb_rx_fifo_pos == TB_RX_FIFO_LEN) {
+      // atm_log_str("E2-R RX FIFO FULL!\n");
+      continue;
+    }
+
+    // we have been polled by the GPIO and need to read data from the EEPROM
+    eeprom.read(tb_rx_fifo[tb_rx_fifo_pos++]);
+    // atm_log_bytes_("E2-R", &tb_rx_fifo_pos, 1);
+    LOG_DBG("E2-R++ %u\n", tb_rx_fifo_pos);
+
+    uint8_t *rx_data;
+    uint8_t rx_pkt_len;
+
+    if(testbed.pop(&rx_data, &rx_pkt_len)) {
+      testbed.read_callback(rx_data, rx_pkt_len, tb_destinations, tb_num_dst);
+    // atm_log_bytes_("E2-R--", &tb_rx_fifo_pos, 1);
+    }
+  }
+
+  PROCESS_END();
+}
+
+volatile rtimer_clock_t eeprom_next_write = 0;
+/*---------------------------------------------------------------------------*/
+/* Write process */
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(dc_eeprom_writer_process, ev, data)
+{
+  // static uint16_t last_write_ep = 0;
+
+  PROCESS_BEGIN();
+
+  LOG_INFO("- Started E2-W dc_eeprom_writer_process\n");
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
+
+    // SPIKE_GPIO(29);
+    /* Check we have data to write*/
+    if(!tb_tx_fifo_pos) {
+      continue;
+    }
+
+    // rtimer_clock_t now = NRF_RTIMER_NOW();
+    rtimer_clock_t now = RTIMER_NOW();
+
+    if(!eeprom_next_write) {
+      eeprom_next_write = now;
+    }
+
+    // NB: This was needed for sky, as you may be >2s since the last write.
+    // if(last_write_ep != ep.seq_no) {
+    //   // this is a new epoch
+    //   atm_log_str("NE\n");
+    //   last_write_ep = ep.seq_no;
+    //   eeprom_next_write = now;
+    // }
+
+    /* Delay if last write was <20ms ago and we have new data this can happen
+       when we are receiving data in bulk from several sources*/
+    // if(tb_tx_fifo_pos > 0) {}
+    while(RTIMER_CLOCK_LT(now, eeprom_next_write)) {
+      /* We need to wake up again later and actually do the write, constantly
+         polling ourselves will prevent the MCU from going back to sleep but we
+         don't have etimers */
+      process_poll(&dc_eeprom_writer_process);
+      PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
+      // now = NRF_RTIMER_NOW();
+      now = RTIMER_NOW();
+    }
+
+    /* We have received a packet and need to write it to the EEPROM */
+    // LOG_DBG("E2-W %u/%u\n", tb_tx_fifo_pos, TB_TX_FIFO_LEN);
+    tb_tx_fifo_pos--;
+    LOG_DBG("E2-T-- %u\n", tb_tx_fifo_pos);
+
+    eeprom.write(tb_tx_fifo[tb_tx_fifo_pos]);
+    // atm_log_bytes_("E2-W", &tb_tx_fifo_pos, 1);
+
+    // eeprom_next_write = NRF_RTIMER_NOW() + EEPROM_SETTLE_TIME;
+    eeprom_next_write = RTIMER_NOW() + EEPROM_SETTLE_TIME;
+
+    if(tb_tx_fifo_pos > 0) {
+      /* Setup a periodic send timer. */
+      //SPIKE_GPIO(30);
+      process_poll(&dc_eeprom_writer_process);
+    }
+    // SPIKE_GPIO(29);
+
+  }
+
+  PROCESS_END();
+}
+
+/*---------------------------------------------------------------------------*/
+/* Printing */
+/*---------------------------------------------------------------------------*/
+static void
+print_traffic_pattern(volatile tb_pattern_t* p)
+{
+  uint8_t i;
+  // NONE(0), P2P(1), P2MP(2), MP2P(3), MP2MP(4)
+  // NB: If TB_MAX_SRC_DEST is not the same as the testbed expects, patching will FAIL!
+  LOG_INFO("  * Traffic pattern: %s (%u)\n", PATTERN_TO_STR(p->traffic_pattern), p->traffic_pattern);
+  if( (p->traffic_pattern > 0) && (p->traffic_pattern <= 4))
+  {
+    LOG_INFO("  * Sources:\n");
+    for(i = 0; i < TB_MAX_SRC_DEST; i++)
+    {
+      if(p->source_id[i]!=0)
+        LOG_INFO("     %d: %d\n", i, p->source_id[i]);
+    }
+    LOG_INFO("  * Destinations:\n");
+    for(i = 0; i < TB_MAX_SRC_DEST; i++)
+    {
+      if(p->destination_id[i] !=0)
+        LOG_INFO("     %d: %d\n", i, p->destination_id[i]);
+    }
+    if(p->periodicity == 0)
+    {
+      LOG_INFO("  * Aperiodic Upper: %lu\n", p->aperiodic_upper_bound);
+      LOG_INFO("  * Aperiodic Lower: %lu\n", p->aperiodic_lower_bound);
+    }
+    else
+    {
+      LOG_INFO("  * Period: %lu\n", p->periodicity);
+    }
+    LOG_INFO("  * Delta: %lu\n", p->periodicity);
+    LOG_INFO("  * Message Length: %d\n", p->msg_length);
+    LOG_INFO("  * Message OffsetH: %d\n", p->msg_offsetH);
+    LOG_INFO("  * Message OffsetL: %d\n", p->msg_offsetL);
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+static void
+print_config(volatile tb_config_t* cfg)
+{
+  uint8_t i;
+  LOG_INFO("- Printing testbed config...\n");
+  // if(cfg->node_id != node_id) {
+  //   LOG_WARN("Config node_id != my node_id (%u != %u)!\n", cfg->node_id, node_id);
+  // }
+  for(i = 0; i < TB_NUMPATTERN; i++) {
+    LOG_INFO(" > PATTERN %d:\n", i);
+    print_traffic_pattern(&(cfg->patterns[i]));
+// #if TB_CONF_SOURCES
+//       LOG_INFO(" > Override SRCs:\n");
+//       for(i = 0; i < tb_num_src; i++)
+//       {
+//           LOG_INFO("   %d: %d\n", i, tb_sources[i]);
+//       }
+// #endif
+// #if TB_CONF_DESTINATIONS
+//       LOG_INFO(" > Override DSTs:\n");
+//       for(i = 0; i < tb_num_dst; i++)
+//       {
+//           LOG_INFO("   %d: %d\n", i, tb_destinations[i]);
+//       }
+// #endif
+// #if TB_CONF_FORWARDERS
+//       LOG_INFO(" > Override FWDs:\n");
+//       for(i = 0; i < tb_num_fwd; i++)
+//       {
+//           LOG_INFO("   %d: %d\n", i, tb_forwarders[i]);
+//       }
+// #endif
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+static void
+print_custom_config()
+{
+#ifdef TB_CONF_CUSTOM_CONFIG
+  LOG_INFO("- Printing testbed custom config...\n");
+  LOG_INFO(" > _RPL_DIO_INTERVAL_MIN: %u\n", custom_cfg._RPL_DIO_INTERVAL_MIN);
+  LOG_INFO(" > _MAX_LINK_METRIC: %u\n", custom_cfg._MAX_LINK_METRIC);
+  LOG_INFO(" > _RANK_THRESHOLD: %u\n", custom_cfg._RANK_THRESHOLD);
+#endif
+}

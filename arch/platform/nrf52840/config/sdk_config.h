@@ -4131,7 +4131,7 @@
 // <i> Setting string to NULL disables that string.
 // <i> The order of manufacturer names must be the same like in @ref APP_USBD_STRINGS_LANGIDS.
 #ifndef APP_USBD_STRINGS_MANUFACTURER
-#define APP_USBD_STRINGS_MANUFACTURER APP_USBD_STRING_DESC("Toshiba")
+#define APP_USBD_STRINGS_MANUFACTURER APP_USBD_STRING_DESC("None")
 #endif
 
 //==========================================================

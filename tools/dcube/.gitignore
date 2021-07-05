@@ -1,0 +1,4 @@
+key.pub
+*.csv
+*.conf
+results/*

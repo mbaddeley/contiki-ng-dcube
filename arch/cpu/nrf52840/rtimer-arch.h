@@ -42,6 +42,17 @@
 #define RTIMER_ARCH_H_
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
+
+// HACK: This is a terrible way to do this. See rtimer-arch.c
+#define NRF_RTIMER_NOW()        nrf_rtimer_now()
+#define RTIMER_MILLISECOND      (RTIMER_ARCH_SECOND/1000)
+#define RTIMER_MICROSECOND      (RTIMER_MILLISECOND/1000) // FIXME!!!! WILL BLOW UP ON SKY!!!!!
+#define RTIMER_TICKS_TO_MS(T)   (uint16_t)((T)/RTIMER_MILLISECOND)
+#define RTIMER_TICKS_TO_US(T)   (uint32_t)((T)/RTIMER_MICROSECOND)
+#define RTIMER_MS_TO_TICKS(ms)  ((RTIMER_MILLISECOND*(ms)))
+#define RTIMER_US_TO_TICKS(us)  ((RTIMER_MICROSECOND*(us)))
+#define RTIMER_TICKS_HALF_US    8
+
 /*---------------------------------------------------------------------------*/
 rtimer_clock_t rtimer_arch_now(void);
 /*---------------------------------------------------------------------------*/

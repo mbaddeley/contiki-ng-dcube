@@ -1,38 +1,43 @@
-<img src="https://github.com/contiki-ng/contiki-ng.github.io/blob/master/images/logo/Contiki_logo_2RGB.png" alt="Logo" width="256">
+# Contiki-NG-DCube: D-Cube Integration for Contiki-NG
 
-# Contiki-NG: The OS for Next Generation IoT Devices
+Contiki-NG-DCube provides easy D-Cube testbed integration for [Contiki-NG](https://github.com/contiki-ng/contiki-ng), with support for the TelosB (Tmote Sky) and nrf52840 platforms currently available on D-Cube.
 
-[![Github Actions](https://github.com/contiki-ng/contiki-ng/workflows/CI/badge.svg?branch=develop)](https://github.com/contiki-ng/contiki-ng/actions)
-[![Documentation Status](https://readthedocs.org/projects/contiki-ng/badge/?version=master)](https://contiki-ng.readthedocs.io/en/master/?badge=master)
-[![license](https://img.shields.io/badge/license-3--clause%20bsd-brightgreen.svg)](https://github.com/contiki-ng/contiki-ng/blob/master/LICENSE.md)
-[![Latest release](https://img.shields.io/github/release/contiki-ng/contiki-ng.svg)](https://github.com/contiki-ng/contiki-ng/releases/latest)
-[![GitHub Release Date](https://img.shields.io/github/release-date/contiki-ng/contiki-ng.svg)](https://github.com/contiki-ng/contiki-ng/releases/latest)
-[![Last commit](https://img.shields.io/github/last-commit/contiki-ng/contiki-ng.svg)](https://github.com/contiki-ng/contiki-ng/commit/HEAD)
+[D-Cube](https://iti-testbed.tugraz.at/wiki/index.php/Main_Page) is a full-fledged benchmarking infrastructure that provides a consistent way to evaluate the performance of low-power wireless systems. Hosted at Graz University of Technology, D-Cube supports around 50 nodes, with automated testing of the reliability, timeliness, and energy consumption of low-power wireless communication protocols in a variety of settings. The primary audience of D-Cube are academic researchers and industry practitioners creating low-power wireless networking solutions that would like to quantitatively assess and compare their performance with that of other systems addressing the same class of applications.
 
-[![Stack Overflow Tag](https://img.shields.io/badge/Stack%20Overflow%20tag-Contiki--NG-blue?logo=stackoverflow)](https://stackoverflow.com/questions/tagged/contiki-ng)
-[![Gitter](https://img.shields.io/badge/Gitter-Contiki--NG-blue?logo=gitter)](https://gitter.im/contiki-ng)
-[![Twitter](https://img.shields.io/badge/Twitter-%40contiki__ng-blue?logo=twitter)](https://twitter.com/contiki_ng)
+Specifically, this fork provides command-line tools to allow a user to easily post jobs to and fetch results/logs from the D-Cube testbed. This includes but is not limited to D-Cube's...
 
-Contiki-NG is an open-source, cross-platform operating system for Next-Generation IoT devices. It focuses on dependable (secure and reliable) low-power communication and standard protocols, such as IPv6/6LoWPAN, 6TiSCH, RPL, and CoAP. Contiki-NG comes with extensive documentation, tutorials, a roadmap, release cycle, and well-defined development flow for smooth integration of community contributions.
+- Binary patching features for traffic pattern setup and packet injection.
+- JamLab's wireless jamming facilities.
+- TempLab's temperature controlled nodes.
 
-Unless explicitly stated otherwise, Contiki-NG sources are distributed under
-the terms of the [3-clause BSD license](LICENSE.md). This license gives
-everyone the right to use and distribute the code, either in binary or
-source code format, as long as the copyright license is retained in
-the source code.
+Additionally, Contiki-NG-DCube includes a testbed service, as well as additions to Contiki-NG's deployment service, providing eeprom drivers to manage reading and writing packets from/to devices.
 
-Contiki-NG started as a fork of the Contiki OS and retains some of its original features.
+## Interesting Folders
 
-Find out more:
+- examples/dcube
+- os/services/deployment
+- os/services/testbed
+- tools/dcube
 
-* GitHub repository: https://github.com/contiki-ng/contiki-ng
-* Documentation: https://github.com/contiki-ng/contiki-ng/wiki
-* List of releases and changes: https://github.com/contiki-ng/contiki-ng/releases
-* Web site: http://contiki-ng.org
+## How to Use
 
-Engage with the community:
+To use Contiki-NG-DCube, you need to create a D-Cube account [HERE](https://iti-testbed.tugraz.at/wiki/index.php/Testbed_Access). Once you've created your account, create a new file called **key.pub** in **tools/dcube** , and add your D-Cube API key to this (either with the command below or copy ans pasting using a text editor). You can find your API key when logged into D-Cube by clicking the `dropdown menu on the top right >> API Key Management >> Show API Key`.
 
-* Discussions on GitHub: https://github.com/contiki-ng/contiki-ng/discussions
-* Contiki-NG tag on Stack Overflow: https://stackoverflow.com/questions/tagged/contiki-ng
-* Gitter: https://gitter.im/contiki-ng
-* Twitter: https://twitter.com/contiki_ng
+```
+$ cd tools/dcube
+$ echo "your-key-here" > key.pub
+```
+
+You'll find an example application in **examples/dcube**. This implements nullnet and simply broadcasts to nearby nodes. You can build this for either `TARGET=sky` or `TARGET=nrf52840`. The easiest way to do this and post jobs to D-Cube is through the **dcube.sh** script found in **tools/dcube**. To do this you will need to create a protocol on D-Cube, and use the protocol number assigned to it. For example, the following command will build for the skymote, and post to the testbed.
+
+**N.B. In this example binary patching is turned off to allow simple testing of compiled binaries without D-Cube's automated testing and monitoring.**
+
+```
+$ ./dcube.sh -POST TARGET=sky -e dcube -n TEST -p <your-protocol-number> -d test_0 -nopatch
+```
+
+For a full list of commands, please use the help function.
+
+```
+$ ./dcube.sh --help
+```

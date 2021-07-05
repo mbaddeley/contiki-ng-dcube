@@ -58,6 +58,14 @@
    Intended only for positive values of T. */
 #define RTIMERTICKS_TO_US_64(T)  ((uint32_t)(((uint64_t)(T) * 1000000 + ((RTIMER_ARCH_SECOND) / 2)) / (RTIMER_ARCH_SECOND)))
 
+
+#define RTIMER_MILLISECOND           (RTIMER_ARCH_SECOND/1000)
+// #define RTIMER_MICROSECOND           (RTIMER_MILLISECOND/1000) // FIXME!!!! WILL BLOW UP ON SKY!!!!!
+#define RTIMER_TICKS_TO_MS(T)        (uint16_t)((T)/RTIMER_MILLISECOND)
+// #define RTIMER_TICKS_TO_US(T)        (uint32_t)((T)/RTIMER_MICROSECOND)
+#define RTIMER_MS_TO_TICKS(ms)       ((RTIMER_MILLISECOND*(ms)))
+// #define RTIMER_US_TO_TICKS(us)       ((RTIMER_MICROSECOND*(us)))
+
 rtimer_clock_t rtimer_arch_now(void);
 
 #endif /* RTIMER_ARCH_H_ */

@@ -92,6 +92,16 @@ TIMER0_IRQHandler(void)
     rtimer_run_next();
   }
 }
+
+/*---------------------------------------------------------------------------*/
+// TODO: We have multiple rtimers and should be able to call them through the
+//       rtimer api
+rtimer_clock_t
+nrf_rtimer_now(void)
+{
+  NRF_TIMER1->TASKS_CAPTURE[3] = 1; // Capture Timer value to CC[0] register
+  return NRF_TIMER1->CC[3];         // Compare register 3
+}
 /*---------------------------------------------------------------------------*/
 /**
  * @}
