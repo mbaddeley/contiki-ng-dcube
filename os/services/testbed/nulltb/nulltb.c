@@ -9,18 +9,9 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "NULLTB-E2"
-#define LOG_LEVEL LOG_LEVEL_NONE
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 #define RAND_UP_TO(n) (int)(((n) * (uint32_t)random_rand()) / RANDOM_RAND_MAX)
-
-// /* In flash configuration struct, will be replaced by binary patching */
-// volatile tb_config_t     __attribute((section (".testbedConfigSection"))) dc_cfg = {0};
-// /* Custom Testbed Configuration Struct Placeholder */
-// #ifdef TB_CONF_CUSTOM_CONFIG
-// volatile custom_config_t __attribute((section (".customConfigSection"))) custom_cfg={TB_CONF_CUSTOM_CONFIG};
-// #else
-// volatile custom_config_t __attribute((section (".customConfigSection"))) custom_cfg={0};
-// #endif
 
 volatile tb_config_t dc_cfg;
 
@@ -104,8 +95,6 @@ eeprom_read(uint8_t* dst_buf)
     TB_RAND_QUICK(dst_buf[i]);
   }
   read_event = 0;
-//   rtimer_clock_t t_end_read = NRF_RTIMER_NOW() + TB_EEPROM_READ_TIME;
-//   do {} while(RTIMER_CLOCK_LT(NRF_RTIMER_NOW(), t_end_read));
   rtimer_clock_t t_end_read = RTIMER_NOW() + TB_EEPROM_READ_TIME;
   do {} while(RTIMER_CLOCK_LT(RTIMER_NOW(), t_end_read));
 }
@@ -134,7 +123,7 @@ schedule_read() {
   #if LOG_LEVEL >= LOG_LEVEL_DBG
       LOG_DBG("Send in... ");
       print_division(next_send, CLOCK_SECOND);
-      LOG_DBG_("s  %u\n", next_send);
+      LOG_DBG_("s  %lu\n", next_send);
   #endif
 
     etimer_set(&timer, next_send);

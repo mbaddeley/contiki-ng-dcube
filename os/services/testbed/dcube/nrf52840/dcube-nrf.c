@@ -15,6 +15,9 @@
 
 /* In flash configuration struct, will be replaced by binary patching */
 volatile tb_config_t __attribute((section (".testbedConfigSection"))) dc_cfg = {0};
+// #undef TB_MAX_SRC_DEST
+// #define TB_MAX_SRC_DEST   4
+// volatile tb_config_t __attribute((section (".testbedConfigSection"))) dc_cfg = {3,{{2,{3,0,0,0},{1,2,4,0},8,0,0,5000,0,0,5000}}};
 /* Custom Testbed Configuration Struct Placeholder */
 #ifdef TB_CONF_CUSTOM_CONFIG
 volatile custom_config_t __attribute((section (".customConfigSection"))) custom_cfg={TB_CONF_CUSTOM_CONFIG};
@@ -97,9 +100,11 @@ gpio_init(void)
   }
 
   if(tb_node_type == NODE_TYPE_DESTINATION) {
+    LOG_INFO("Init DST GPIO...\n");
     //EEPROM data is signaled on pin P1.02
     nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(1,2));
   } else if (tb_node_type == NODE_TYPE_SOURCE) {
+    LOG_INFO("Init SRC GPIO...\n");
     // nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_LOTOHI(true);
     nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
     // in_config.pull = NRF_GPIO_PIN_PULLUP; //drive by the testbed only if selected as output
@@ -122,15 +127,16 @@ config(void)
 static void
 init()
 {
+  LOG_INFO("- Init TESTBED=dcube...\n");
   twi_init();
   gpio_init();
-  LOG_INFO("- Do DCUBE testbed patching... %u\n", TB_PATCHING);
 }
 
 /*---------------------------------------------------------------------------*/
 static uint8_t
 event()
 {
+  LOG_DBG("read event!\n");
   return read_event;
 }
 
@@ -140,19 +146,16 @@ eeprom_read(uint8_t* dst_buf)
 {
   unsigned char eeprom_by_address[2];
   ret_code_t err_code;
-
   read_event = 0;
-
   uint16_t eeprom_address = 0; // NB: previously argv[0], and passed as 0
 
-  // LOG_INFO("len:%u\n", dc_cfg.patterns[tb_pattern_id].msg_length);
   memset(dst_buf, 0, dc_cfg.patterns[tb_pattern_id].msg_length);
 
   eeprom_by_address[1]	= eeprom_address;
   eeprom_by_address[0] = (unsigned char)(eeprom_address << 8);
 
   // setting the start address
-  // LOG_INFO("RS:%u\n", dst_buf[0]);
+  LOG_DBG("RS:%u\n", dst_buf[0]);
   do {
     m_xfer_done = false;
     err_code = nrf_drv_twi_tx(&m_twi, EEPROM_ADDR, eeprom_by_address, 2, true);
@@ -162,7 +165,7 @@ eeprom_read(uint8_t* dst_buf)
     m_xfer_done = false;
     err_code = nrf_drv_twi_rx(&m_twi, EEPROM_ADDR, dst_buf, dc_cfg.patterns[tb_pattern_id].msg_length);
   } while(NRF_SUCCESS != err_code);
-  // LOG_INFO("RE:%u\n", dst_buf[0]);
+  LOG_DBG("RE:%u\n", dst_buf[0]);
 
   // while(!m_xfer_done) watchdog_periodic(); // TODO: We want I2C to be blocking, so we don't use this
 }

@@ -20,22 +20,19 @@
 #define TB_PERIOD_MAX                 (CLOCK_SECOND * 5)
 #endif
 
+/*NULLTB data length */
+// #if TB_CONF_NULLTB_DATA_LEN
 #if TB_CONF_NULLTB_DATA_LEN
 #define TB_DATA_LEN                   TB_CONF_NULLTB_DATA_LEN
 #else
 #define TB_DATA_LEN                   8
 #endif
 
-#if TB_CONF_NULLTB_MAX_SRC_DEST
-#define TB_MAX_SRC_DEST               TB_CONF_NULLTB_MAX_SRC_DEST
+/* Same number of nodes as dcube */
+#if TB_CONF_MAX_SRC_DEST
+#define TB_MAX_SRC_DEST               TB_CONF_MAX_SRC_DEST
 #else
-#define TB_MAX_SRC_DEST               8
-#endif
-
-#if TB_CONF_NULLTB_NUMPATTERN
-#define TB_NUMPATTERN                 TB_CONF_NULLTB_NUMPATTERN
-#else
-#define TB_NUMPATTERN                 8
+#define TB_MAX_SRC_DEST               50
 #endif
 
 #endif /* DCUBE_NULLTB_H */

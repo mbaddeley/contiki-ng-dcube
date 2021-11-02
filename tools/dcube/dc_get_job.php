@@ -63,10 +63,8 @@ function combine_data($scenario, $queue) {
 /* Main */
 /*---------------------------------------------------------------------------*/
 // api key
-$keyfile = file_get_contents('./key.pub');
-$key = "?key=" . $keyfile;
-$key = str_replace(array("\r\n", "\n", "\r"), '', $key);
 $base = "https://iti-testbed.tugraz.at/api/";
+$key = "?key=" . $argv[1];
 
 $options = array(
     'http' => array(
@@ -77,20 +75,20 @@ $options = array(
 $context  = stream_context_create($options);
 
 $params = "";
-if ($argv[4]) {
-  echo "Filter " . $argv[4] . " days of jobs..." . PHP_EOL;
+if ($argv[5]) {
+  echo "Filter " . $argv[5] . " days of jobs..." . PHP_EOL;
   $act = "metric";
   $stop = time();
-  $start = strtotime('-' . $argv[4] . ' day', $stop);
+  $start = strtotime('-' . $argv[5] . ' day', $stop);
   $params = $params . "&stop=" . $stop . "&start=" . $start;
 }
-if ($argv[5]) {
-  echo "Filter jobs with name: " . $argv[5] . PHP_EOL;
-  $params = $params . "&name=" . $argv[5];
+if ($argv[6]) {
+  echo "Filter jobs with name: " . $argv[6] . PHP_EOL;
+  $params = $params . "&name=" . $argv[6];
 }
 
 /*---------------------------------------------------------------------------*/
-$act = "/scenario/" . $argv[1];
+$act = "/scenario/" . $argv[2];
 $result = file_get_contents($base . $act . $key . $params, false, $context);
 $scenario = json_decode($result, true);
 
@@ -120,7 +118,7 @@ $scenario = array_map(function($scenario) {
 
 
 /*---------------------------------------------------------------------------*/
-$act = "/queue/" . $argv[1];
+$act = "/queue/" . $argv[2];
 $result = file_get_contents($base . $act . $key . $params, false, $context);
 $queue = json_decode($result, true);
 
@@ -166,8 +164,8 @@ $result_readable = array(
 
 /*---------------------------------------------------------------------------*/
 # Convert to CSV
-echo "Write results to CSV... APPEND=" . $argv[2] ." WRITE_HEADERS=" . $argv[3] . PHP_EOL;
-$csv = print_r(str_putcsv($result, $argv[3]), true);
+echo "Write results to CSV... APPEND=" . $argv[3] ." WRITE_HEADERS=" . $argv[4] . PHP_EOL;
+$csv = print_r(str_putcsv($result, $argv[4]), true);
 $csv_readable = print_r(str_putcsv($result_readable, $argv[3]), true);
 # Write to file
 if ($argv[2]) {

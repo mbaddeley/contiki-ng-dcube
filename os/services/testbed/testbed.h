@@ -2,6 +2,7 @@
 #define TESTBED_H_
 
 #include "contiki.h"
+#include "contiki-net.h"
 #include "services/testbed/testbed-conf.h"
 
 /* Turn on TB Patching for DCUBE */
@@ -23,10 +24,14 @@
   (P == MP2P)  ? ("MP2P")  : \
   (P == MP2MP) ? ("MP2MP") : ("UNKWN"))
 
+#if TB_CONF_NUM_PATTERN
+#define TB_NUMPATTERN TB_CONF_NUM_PATTERN
+#else
+#define TB_NUMPATTERN 1
+#endif
+
 #if TB_CONF_PATTERN
 #define TB_PATTERN TB_CONF_PATTERN
-#elif ATM_DATA_CONF_PATTERN
-#define TB_PATTERN ATM_DATA_CONF_PATTERN
 #endif
 
 #ifdef TB_CONF_SOURCES
@@ -113,19 +118,19 @@ typedef struct {
 extern volatile custom_config_t __attribute((section (".customConfigSection"))) custom_cfg;
 
 // the testbed needs at least 20ms to read out the EEPROM packet after it has been written
-#define EEPROM_SETTLE_TIME RTIMER_MS_TO_TICKS(20)
+#define EEPROM_SETTLE_TIME US_TO_RTIMERTICKS_64(20000)
 
 /* EEPROM */
 #ifdef TB_CONF_EEPROM_READ_TIME
 #define TB_EEPROM_READ_TIME TB_CONF_EEPROM_READ_TIME
 #else
-#define TB_EEPROM_READ_TIME RTIMER_MS_TO_TICKS(10)
+#define TB_EEPROM_READ_TIME US_TO_RTIMERTICKS_64(10000)
 #endif
 
 #ifdef TB_CONF_EEPROM_WRITE_TIME
 #define TB_EEPROM_WRITE_TIME TB_CONF_EEPROM_WRITE_TIME
 #else
-#define TB_EEPROM_WRITE_TIME RTIMER_MS_TO_TICKS(10)
+#define TB_EEPROM_WRITE_TIME US_TO_RTIMERTICKS_64(10000)
 #endif
 
 #define NODE_TYPE_NONE        0

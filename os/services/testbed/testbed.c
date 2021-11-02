@@ -2,6 +2,7 @@
 
 #include "contiki.h"
 #include "node-id.h"
+#include "sys/rtimer.h"
 
 #include "net/packetbuf.h"
 #include "lib/memb.h"
@@ -10,7 +11,7 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "TESTBED"
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 /* Data structures to hold node roles. It is possible to set these
    manually, or let the testbed set them from the config. */
@@ -161,14 +162,21 @@ get_pattern_info()
 #endif
 
 #ifdef TB_CONF_DESTINATIONS
-    LOG_WARN(" > Using preset DSTs (x%u)\n", TB_N_DESTINATIONS);
-    for(j=0; j < TB_N_DESTINATIONS; j++) {
-      tb_num_dst++;
-      // check to see we are participating
-      if(tb_destinations[j] == node_id) {
-        found = 1;
+    if(!tb_destinations[0]) {
+      LOG_WARN(" > ALL non-SRC nodes are DSTs!\n");
+      if(tb_node_type != NODE_TYPE_SOURCE) {
         tb_node_type = NODE_TYPE_DESTINATION;
-        // leds_on(0x06); // LED4
+      }
+    } else {
+      LOG_WARN(" > Using preset DSTs (x%u)\n", TB_N_DESTINATIONS);
+      for(j=0; j < TB_N_DESTINATIONS; j++) {
+        tb_num_dst++;
+        // check to see we are participating
+        if(tb_destinations[j] == node_id) {
+          found = 1;
+          tb_node_type = NODE_TYPE_DESTINATION;
+          // leds_on(0x06); // LED4
+        }
       }
     }
 #else
@@ -263,7 +271,6 @@ static uint8_t
 push(uint8_t *rx_pkt, uint8_t len)
 {
   if(tb_tx_fifo_pos >= TB_TX_FIFO_LEN) {
-    // atm_log_str("E2-W FIFO FULL!\n");  // overflow
     LOG_ERR("E2-W FIFO FULL!\n");
     return 0;
   }
@@ -342,13 +349,11 @@ PROCESS_THREAD(dc_eeprom_reader_process, ev, data)
     // LOG_DBG("E2-R %u/%u\n", tb_rx_fifo_pos, TB_RX_FIFO_LEN);
 
     if(tb_rx_fifo_pos == TB_RX_FIFO_LEN) {
-      // atm_log_str("E2-R RX FIFO FULL!\n");
       continue;
     }
 
     // we have been polled by the GPIO and need to read data from the EEPROM
     eeprom.read(tb_rx_fifo[tb_rx_fifo_pos++]);
-    // atm_log_bytes_("E2-R", &tb_rx_fifo_pos, 1);
     LOG_DBG("E2-R++ %u\n", tb_rx_fifo_pos);
 
     uint8_t *rx_data;
@@ -356,7 +361,6 @@ PROCESS_THREAD(dc_eeprom_reader_process, ev, data)
 
     if(testbed.pop(&rx_data, &rx_pkt_len)) {
       testbed.read_callback(rx_data, rx_pkt_len, tb_destinations, tb_num_dst);
-    // atm_log_bytes_("E2-R--", &tb_rx_fifo_pos, 1);
     }
   }
 
@@ -394,14 +398,12 @@ PROCESS_THREAD(dc_eeprom_writer_process, ev, data)
     // NB: This was needed for sky, as you may be >2s since the last write.
     // if(last_write_ep != ep.seq_no) {
     //   // this is a new epoch
-    //   atm_log_str("NE\n");
     //   last_write_ep = ep.seq_no;
     //   eeprom_next_write = now;
     // }
 
     /* Delay if last write was <20ms ago and we have new data this can happen
        when we are receiving data in bulk from several sources*/
-    // if(tb_tx_fifo_pos > 0) {}
     while(RTIMER_CLOCK_LT(now, eeprom_next_write)) {
       /* We need to wake up again later and actually do the write, constantly
          polling ourselves will prevent the MCU from going back to sleep but we
@@ -418,7 +420,6 @@ PROCESS_THREAD(dc_eeprom_writer_process, ev, data)
     LOG_DBG("E2-T-- %u\n", tb_tx_fifo_pos);
 
     eeprom.write(tb_tx_fifo[tb_tx_fifo_pos]);
-    // atm_log_bytes_("E2-W", &tb_tx_fifo_pos, 1);
 
     // eeprom_next_write = NRF_RTIMER_NOW() + EEPROM_SETTLE_TIME;
     eeprom_next_write = RTIMER_NOW() + EEPROM_SETTLE_TIME;
@@ -442,7 +443,6 @@ static void
 print_traffic_pattern(volatile tb_pattern_t* p)
 {
   uint8_t i;
-  // NONE(0), P2P(1), P2MP(2), MP2P(3), MP2MP(4)
   // NB: If TB_MAX_SRC_DEST is not the same as the testbed expects, patching will FAIL!
   LOG_INFO("  * Traffic pattern: %s (%u)\n", PATTERN_TO_STR(p->traffic_pattern), p->traffic_pattern);
   if( (p->traffic_pattern > 0) && (p->traffic_pattern <= 4))

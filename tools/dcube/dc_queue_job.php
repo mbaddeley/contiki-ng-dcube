@@ -1,36 +1,33 @@
 <?php
 
-// api key
-$keyfile = file_get_contents('./key.pub');
-$key = "?key=" . $keyfile;
-$key = str_replace(array("\r\n", "\n", "\r"), '', $key);
 $base = "https://iti-testbed.tugraz.at/api/";
+$key = "?key=" . $argv[1];
 
 $act = "queue/create_job";
 
 $job = array(
-    "protocol"        => intval($argv[1]),
-    "layout"          => $argv[2],  // NB: Bug in API means this is a str
-    "periodicity"     => intval($argv[3]),
-    "message_length"  => intval($argv[4]),
-    "patching"        => intval($argv[5]),
-    "name"            => $argv[6],
-    "description"     => $argv[7],
-    "duration"        => intval($argv[8]),
-    "logs"            => intval($argv[9]),
-    "jamming"         => intval($argv[10]),
-    "priority"        => boolval($argv[11]),
-    "file"            => base64_encode(file_get_contents($argv[12]))
+    "protocol"        => intval($argv[2]),
+    "layout"          => $argv[3],  // NB: Bug in API means this is a str
+    "periodicity"     => intval($argv[4]),
+    "message_length"  => intval($argv[5]),
+    "patching"        => intval($argv[6]),
+    "name"            => $argv[7],
+    "description"     => $argv[8],
+    "duration"        => intval($argv[9]),
+    "logs"            => intval($argv[10]),
+    "jamming"         => intval($argv[11]),
+    "priority"        => boolval($argv[12]),
+    "file"            => base64_encode(file_get_contents($argv[13]))
 );
-if($argv[13]) {
-  $job["temp_profile"] = $argv[13];
+if($argv[14]) {
+  $job["temp_profile"] = $argv[14];
 }
 $overrides = array();
-if($argv[14]) {
-  $overrides["start"] = intval($argv[14]);
-}
 if($argv[15]) {
-  $overrides["delta"] = intval($argv[15]);
+  $overrides["start"] = intval($argv[15]);
+}
+if($argv[16]) {
+  $overrides["delta"] = intval($argv[16]);
 }
 if(sizeof($overrides)) {
   $job["config_overrides"] = $overrides;

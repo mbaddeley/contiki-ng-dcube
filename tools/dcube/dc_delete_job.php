@@ -1,12 +1,10 @@
 <?php
 
 // api key
-$keyfile = file_get_contents('./key.pub');
-$key = "?key=" . $keyfile;
-$key = str_replace(array("\r\n", "\n", "\r"), '', $key);
 $base = "https://iti-testbed.tugraz.at/api/";
+$key = "?key=" . $argv[1];
 
-$act = "queue/" . $argv[1];
+$act = "queue/" . $argv[2];
 
 $options = array(
     'http' => array(

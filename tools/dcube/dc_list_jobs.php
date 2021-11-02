@@ -1,10 +1,7 @@
 <?php
 
-// api key
-$keyfile = file_get_contents('./key.pub');
-$key = "?key=" . $keyfile;
-$key = str_replace(array("\r\n", "\n", "\r"), '', $key);
 $base = "https://iti-testbed.tugraz.at/api/";
+$key = "?key=" . $argv[1];
 
 $options = array(
     'http' => array(
@@ -17,25 +14,25 @@ $context  = stream_context_create($options);
 
 $params = "";
 # --days=*
-if ($argv[1]) {
-  echo "Filter " . $argv[1] . " days of jobs..." . PHP_EOL;
+if ($argv[2]) {
+  echo "Filter " . $argv[2] . " days of jobs..." . PHP_EOL;
   $act = "metric/adv";
   $stop = time();
-  $start = strtotime('-' . $argv[1] . ' day', $stop);
+  $start = strtotime('-' . $argv[2] . ' day', $stop);
   $params = "&stop=" . $stop . "&start=" . $start;
 }
 # -n ""
-if ($argv[2]) {
-  echo "Filter jobs with name: " . $argv[2] . PHP_EOL;
+if ($argv[3]) {
+  echo "Filter jobs with name: " . $argv[3] . PHP_EOL;
   $act = "metric/adv";
-  $params = "&name=" . $argv[2];
+  $params = "&name=" . $argv[3];
 }
 # --last=*
-if ($argv[4]) {
-  echo "Filter last " . $argv[4] . " jobs..." . PHP_EOL;
-  $act = "metric/adv/" . $argv[4];
+if ($argv[5]) {
+  echo "Filter last " . $argv[5] . " jobs..." . PHP_EOL;
+  $act = "metric/adv/" . $argv[5];
 }
-if(!$argv[1] && !$argv[2] && !$argv[4]) {
+if(!$argv[2] && !$argv[3] && !$argv[5]) {
   echo "No filter. Getting ALL jobs..." . PHP_EOL;
   $act = "metric";
 }
@@ -53,7 +50,7 @@ $response = json_decode($result, true);
 echo "Fetched " . count($response) . " jobs..." . PHP_EOL;
 echo "Write results to CSV... VERBOSE=" . $argv[3] . PHP_EOL;
 # -v Verbose
-if($argv[3]) {
+if($argv[4]) {
   $formatted = format_data($response, $act);
   $csv = print_r(str_putcsv($formatted, 1), true);
   # Create a reduced version of this for a readable CSV we can print to bash

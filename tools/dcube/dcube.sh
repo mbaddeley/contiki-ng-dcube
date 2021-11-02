@@ -59,9 +59,6 @@ echo "  \$ ./dcube.sh -POST TARGET=nrf52840 -e dcube -n TEST -p 6667 --dur=600 -
 exit 1
 }
 
-# D-CUBE Private Key (DO NOT SHARE!!!)
-KEY=`cat key.pub`
-
 # --------------------------------------------------------------------------- #
 # View CSV responses from D-Cube
 # --------------------------------------------------------------------------- #
@@ -73,19 +70,19 @@ function pretty_csv {
 # PHP scripts to access the API
 # --------------------------------------------------------------------------- #
 function create_job {
-  php dc_queue_job.php $PROTOCOL $LAYOUT $TRAFFIC $DATALEN $PATCHING "$NAME" \
+  php dc_queue_job.php $KEY $PROTOCOL $LAYOUT $TRAFFIC $DATALEN $PATCHING "$NAME" \
   "$DESC$1" $DUR $SERIAL $JAMMING $PRIORITY "../../examples/$EXAMPLE/node.ihex" $TEMPLAB \
   $START_DELAY $MSG_DELTA
 }
 
 function list_jobs {
-  php -f dc_list_jobs.php $1 $2 $3 $4
+  php -f dc_list_jobs.php $KEY $1 $2 $3 $4
 }
 
 function get_job {
   # FIXME: We can actually filter by DAYS or NAME in here but for now let's use
   #        list_jobs in the script
-  php -f dc_get_job.php $1 $2 $3 0 0
+  php -f dc_get_job.php $KEY $1 $2 $3 0 0
 }
 
 function get_job_description {
@@ -93,7 +90,7 @@ function get_job_description {
 }
 
 function delete_job {
-  php dc_delete_job.php $1
+  php dc_delete_job.php $KEY $1
 }
 
 function compile {
@@ -115,7 +112,7 @@ function compile {
     make clean TARGET=$TARGET && make -j16 TARGET=$TARGET DEPLOYMENT=dcube $@
     msp430-objcopy ./build/$TARGET/node.sky -O ihex node.ihex
   else
-    echo "ERROR: Unknown TARGET! Valid targets are nrf52840 and sky!"
+    echo "ERROR: Unknown TARGET $TARGET! Valid targets are nrf52840 and sky!"
     exit 1;
   fi
 
@@ -135,6 +132,10 @@ while (( "$#" )); do
       ;;
     TESTBED=*)
       TESTBED=${1:8}
+      shift
+      ;;
+    KEY=*)
+      KEY=${1:4}
       shift
       ;;
     # POST jobs
@@ -324,6 +325,16 @@ while (( "$#" )); do
   esac
 done
 
+# D-CUBE Private Key (DO NOT SHARE!!!) Check to see if a key filename is passed,
+# if not then use default key.pub
+if [[ -v KEY ]]; then
+  KEY=`cat $KEY.pub`
+else
+  KEY=`cat key.pub`
+fi
+
+echo "$KEY"
+
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 echo "Positional ARGS: "$@
@@ -335,20 +346,21 @@ else
   ARGS=$(sed -e 's/\(.*\)/\L\1/ ' <<< $@)
   # get rid of repeated words after '='
   ARGS=$(sed -e 's/\b\([a-z]\+\)[=,\n]\1/\1/g' <<< $ARGS)
+  # remove 'board=dk' and '='
+  ARGS=$(sed -r 's/board=[a-zA-Z0-9_]+\s//g' <<< $ARGS)
   # remove '_' and '='
   ARGS=$(sed -r 's/[_=]+//g' <<< $ARGS)
   # convert spaces to '_'
   ARGS=$(sed -r 's/[ ]+/_/g' <<< $ARGS)
   ARGS="_"$ARGS
 fi
+echo $ARGS
 
 if [[ -v SHA ]]; then
   # add git SHA to descriptor
   SHA=$(git rev-parse --short HEAD)
   DESC=$SHA"_"$DESC$ARGS
 fi
-
-
 
 if [[ -z $POST && -z $DELETE && -z $GET && -z $LIST && -z $PLOT ]]; then
   echo 'Error: Need either -POST -DELETE -GET or -LIST opton!'
