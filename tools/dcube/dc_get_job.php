@@ -63,7 +63,7 @@ function combine_data($scenario, $queue) {
 /* Main */
 /*---------------------------------------------------------------------------*/
 // api key
-$base = "https://iti-testbed.tugraz.at/api/";
+$base = $argv[7] . "/api/";
 $key = "?key=" . $argv[1];
 
 $options = array(

@@ -1,7 +1,7 @@
 <?php
 
 // api key
-$base = "https://iti-testbed.tugraz.at/api/";
+$base = $argv[3] . "/api/";
 $key = "?key=" . $argv[1];
 
 $act = "queue/" . $argv[2];

@@ -1,6 +1,6 @@
 <?php
 
-$base = "https://iti-testbed.tugraz.at/api/";
+$base = $argv[17] . "/api/";
 $key = "?key=" . $argv[1];
 
 $act = "queue/create_job";

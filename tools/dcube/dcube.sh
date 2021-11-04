@@ -72,17 +72,17 @@ function pretty_csv {
 function create_job {
   php dc_queue_job.php $KEY $PROTOCOL $LAYOUT $TRAFFIC $DATALEN $PATCHING "$NAME" \
   "$DESC$1" $DUR $SERIAL $JAMMING $PRIORITY "../../examples/$EXAMPLE/node.ihex" $TEMPLAB \
-  $START_DELAY $MSG_DELTA
+  $START_DELAY $MSG_DELTA $SITE
 }
 
 function list_jobs {
-  php -f dc_list_jobs.php $KEY $1 $2 $3 $4
+  php -f dc_list_jobs.php $KEY $1 $2 $3 $4 $SITE
 }
 
 function get_job {
   # FIXME: We can actually filter by DAYS or NAME in here but for now let's use
   #        list_jobs in the script
-  php -f dc_get_job.php $KEY $1 $2 $3 0 0
+  php -f dc_get_job.php $KEY $1 $2 $3 0 0 $SITE
 }
 
 function get_job_description {
@@ -90,7 +90,7 @@ function get_job_description {
 }
 
 function delete_job {
-  php dc_delete_job.php $KEY $1
+  php dc_delete_job.php $KEY $1 $SITE
 }
 
 function compile {
@@ -136,6 +136,10 @@ while (( "$#" )); do
       ;;
     KEY=*)
       KEY=${1:4}
+      shift
+      ;;
+    SITE=*)
+      SITE=${1:5}
       shift
       ;;
     # POST jobs
@@ -422,7 +426,7 @@ if [[ -v POST ]]; then
     TEMPLAB=0
   fi
 
-  [ -z "$PATCHING" ]   && PATCHING=1
+  [ -z "$PATCHING" ]     && PATCHING=1
   MAKEARGS+=" PATCHING=$PATCHING"
   if [[ $PATCHING == 1 ]]; then
     # Onlt add TESTBED=dcube and specify a dflt PATTERN if we are using patching
@@ -430,6 +434,8 @@ if [[ -v POST ]]; then
     [ -z "$PATTERN" ]    && PATTERN=0  # testbed.h :: 0 - NONE | 1 - P2P | 2 - P2MP | 3 - MP2P | 4 - MP2MP
     MAKEARGS+=" TESTBED=$TESTBED PATTERN=$PATTERN"
   fi
+
+  [ -z "$SITE" ]    && SITE="https://iti-testbed.tugraz.at"
 
   if [[ -v START_LAYOUT && -v END_LAYOUT ]]; then
     echo " > POST layout suite..."
@@ -538,7 +544,7 @@ if [[ -v GET ]]; then
         FILE="${i}_$DESC"
         echo " SUCCESS! $FILE"
         cd ./results
-        curl "https://iti-testbed.tugraz.at/api/queue/logs/$i?key=$KEY" -L -o $FILE.zip
+        curl "$SITE/api/queue/logs/$i?key=$KEY" -L -o $FILE.zip
         unzip -q $FILE.zip -d $FILE
         rm $FILE.zip
       fi
