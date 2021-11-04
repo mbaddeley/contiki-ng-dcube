@@ -133,10 +133,12 @@ main(void)
 
   platform_init_stage_three();
 
+#if !BUILD_WITH_TESTBED
 #if BUILD_WITH_RPL_BORDER_ROUTER
   rpl_border_router_init();
   LOG_DBG("With RPL Border Router\n");
 #endif /* BUILD_WITH_RPL_BORDER_ROUTER */
+#endif /* !BUILD_WITH_TESTBED */
 
 #if BUILD_WITH_ORCHESTRA
   orchestra_init();

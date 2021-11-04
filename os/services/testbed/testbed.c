@@ -13,6 +13,8 @@
 #define LOG_MODULE "TESTBED"
 #define LOG_LEVEL LOG_LEVEL_DBG
 
+#define UNUSED(x) (void)(x)
+
 /* Data structures to hold node roles. It is possible to set these
    manually, or let the testbed set them from the config. */
 #ifdef TB_CONF_SOURCES
@@ -29,12 +31,19 @@ static uint8_t tb_destinations[TB_MAX_SRC_DEST] = {0};
 
 #ifdef TB_CONF_FORWARDERS
 TB_FORWARDERS(TB_CONF_FORWARDERS)
-// #else
-// static uint8_t tb_forwarders[TB_MAX_SRC_DEST]   = {0};
+#else
+static uint8_t tb_forwarders[TB_MAX_SRC_DEST]   = {0};
+#endif
+
+#ifdef TB_CONF_BRS
+TB_BRS(TB_CONF_BRS)
+#else
+static uint8_t tb_brs[TB_MAX_BR]               = {0};
 #endif
 
 /* Externs */
-uint8_t tb_pattern_id, tb_node_type, tb_num_src, tb_num_dst, tb_num_fwd, tb_msg_len;
+uint8_t tb_pattern_id, tb_node_type, tb_msg_len, tb_traffic_pattern;
+uint8_t tb_num_src, tb_num_dst, tb_num_fwd, tb_num_br;
 
 /* Buffers */
 static uint8_t tb_rx_fifo[TB_RX_FIFO_LEN][MAX_TB_PACKET_LEN] = {{0}};
@@ -50,8 +59,9 @@ volatile uint8_t gpio_event = 0;
 /*---------------------------------------------------------------------------*/
 /* EEPROM */
 /*---------------------------------------------------------------------------*/
-PROCESS(dc_eeprom_reader_process, "DCUBE EEPROM reader");
-PROCESS(dc_eeprom_writer_process, "DCUBE EEPROM writer");
+PROCESS(tb_eeprom_reader_process, "DCUBE EEPROM reader");
+PROCESS(tb_eeprom_writer_process, "DCUBE EEPROM writer");
+PROCESS(tb_br_process, "DCUBE border router");
 
 static void print_traffic_pattern(volatile tb_pattern_t* p);
 static void print_config(volatile tb_config_t* cfg);
@@ -113,6 +123,26 @@ tb_get_destinations(void)
   return tb_destinations;
 }
 
+
+/*---------------------------------------------------------------------------*/
+uint8_t
+tb_get_n_br(void)
+{
+  // FIXME: Hack until I can think of a better way to get number of brs to nulltb
+  #if TB_CONF_BRS
+    return TB_N_BRS;
+  #else
+    return tb_num_br;
+  #endif
+}
+
+/*---------------------------------------------------------------------------*/
+uint8_t *
+tb_get_brs(void)
+{
+  return tb_brs;
+}
+
 /*---------------------------------------------------------------------------*/
 uint8_t
 tb_get_node_type(void)
@@ -142,7 +172,6 @@ get_pattern_info()
         if(tb_sources[j] == node_id) {
           found = 1;
           tb_node_type = NODE_TYPE_SOURCE;
-          // leds_on(0x08); // LED2
         }
       }
 #else
@@ -156,7 +185,6 @@ get_pattern_info()
         tb_node_type = NODE_TYPE_SOURCE;
         ret = i;
         found = 1;
-        // leds_on(0x08); // LED2
       }
     }
 #endif
@@ -175,7 +203,6 @@ get_pattern_info()
         if(tb_destinations[j] == node_id) {
           found = 1;
           tb_node_type = NODE_TYPE_DESTINATION;
-          // leds_on(0x06); // LED4
         }
       }
     }
@@ -191,10 +218,36 @@ get_pattern_info()
         tb_node_type = NODE_TYPE_DESTINATION;
         ret = i;
         found = 1;
-        // leds_on(0x06); // LED4
       }
     }
 #endif
+
+#ifdef TB_CONF_BRS
+    LOG_WARN(" > Using preset BRs (x%u)\n", TB_N_BRS);
+    for(j=0; j < TB_N_BRS; j++) {
+      tb_num_br++;
+      // check to see we are participating
+      if(tb_brs[j] == node_id) {
+        found = 1;
+        tb_node_type = NODE_TYPE_BR;
+      }
+    }
+#else
+    for(j = 0; j < TB_MAX_BR; j++) {
+      // border routers
+      if(dc_cfg.patterns[i].br_id[j]) {
+        tb_brs[tb_num_dst] = dc_cfg.patterns[i].br_id[j];
+        tb_num_br++;
+      }
+      if(dc_cfg.patterns[i].br_id[j] == node_id) {
+        // then check if we are a border router
+        tb_node_type = NODE_TYPE_BR;
+        ret = i;
+        found = 1;
+      }
+    }
+#endif
+
   }
 #ifdef TB_CONF_FORWARDERS
   LOG_WARN(" > Using preset FWDs (x%u)\n", TB_N_FORWARDERS);
@@ -207,12 +260,12 @@ get_pattern_info()
     }
   }
   if(!found) {
-    // neither a source or a destination not a forwarder - so we are nothing
+    // neither a source or a destination a border router or a forwarder - so we are nothing
     tb_node_type = NODE_TYPE_NONE;
   }
 #else
   if(!found) {
-    // neither a source or a destination - so we must be a forwarder
+    // neither a source or a destination or border router - so we must be a forwarder
     tb_node_type = NODE_TYPE_FORWARDER;
     tb_num_fwd++;
   }
@@ -227,6 +280,7 @@ get_pattern_info()
 static uint8_t
 init()
 {
+  UNUSED(tb_forwarders);
   LOG_INFO("Starting %s Testbed...\n", TB_TO_STR(TESTBED));
   /* Configure the testbed pattern */
   LOG_INFO("- Configuring e2...\n");
@@ -244,23 +298,29 @@ init()
   LOG_INFO("- Init I2C...\n");
   eeprom.init();
 
+  tb_traffic_pattern = dc_cfg.patterns[tb_pattern_id].traffic_pattern;
   tb_msg_len = dc_cfg.patterns[tb_pattern_id].msg_length;
 
   if(tb_node_type == NODE_TYPE_SOURCE) {
     // only source nodes need to handle the event GPIO
-    process_start(&dc_eeprom_reader_process, NULL);
+    process_start(&tb_eeprom_reader_process, NULL);
   } else if(tb_node_type == NODE_TYPE_DESTINATION) {
     // destinations need to write received packets
-    process_start(&dc_eeprom_writer_process, NULL);
+    process_start(&tb_eeprom_writer_process, NULL);
+  } else if(tb_node_type == NODE_TYPE_BR) {
+    // border routers must kick off the BR process (whatever that might be)
+    process_start(&tb_br_process, NULL);
+  } else {
+    // else we are a forwarder
   }
 
   // LOG_INFO("- E2 Settle Time... %u\n", GLOSSY_RTIMER_TO_MS(EEPROM_SETTLE_TIME));
   print_config(&dc_cfg);
   print_custom_config();
-  LOG_INFO("Finished %s testbed setup: " \
-    "tb_pattern_id: %u msg_len:%u node_type: %s num src: %d num dst: %d\n",
-    TB_TO_STR(TESTBED), tb_pattern_id, tb_msg_len,
-    NODE_TYPE_TO_STR(tb_node_type), tb_num_src, tb_num_dst);
+  LOG_INFO("Finished %s testbed setup for pattern id %u: " \
+    "pattern: %s msg_len:%u node_type: %s num src: %u num dst: %u, num_br: %u\n",
+    TB_TO_STR(TESTBED), tb_pattern_id, PATTERN_TO_STR(tb_traffic_pattern), tb_msg_len,
+    NODE_TYPE_TO_STR(tb_node_type), tb_num_src, tb_num_dst, tb_num_br);
 
   return 1;
 }
@@ -301,14 +361,14 @@ pop(uint8_t **dest, uint8_t *len)
 static void
 poll_read()
 {
-  process_poll(&dc_eeprom_reader_process);
+  process_poll(&tb_eeprom_reader_process);
 }
 
 /*---------------------------------------------------------------------------*/
 static void
 poll_write()
 {
-  process_poll(&dc_eeprom_writer_process);
+  process_poll(&tb_eeprom_writer_process);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -333,11 +393,11 @@ struct testbed_driver testbed = {
 /*---------------------------------------------------------------------------*/
 // Will be woken up from a GPIO interrupt on the testbed
 // alternatively, provide test data when running locally
-PROCESS_THREAD(dc_eeprom_reader_process, ev, data)
+PROCESS_THREAD(tb_eeprom_reader_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  LOG_INFO("- Started E2-R dc_eeprom_reader_process\n");
+  LOG_INFO("- Started E2-R tb_eeprom_reader_process\n");
 
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
@@ -371,13 +431,13 @@ volatile rtimer_clock_t eeprom_next_write = 0;
 /*---------------------------------------------------------------------------*/
 /* Write process */
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(dc_eeprom_writer_process, ev, data)
+PROCESS_THREAD(tb_eeprom_writer_process, ev, data)
 {
   // static uint16_t last_write_ep = 0;
 
   PROCESS_BEGIN();
 
-  LOG_INFO("- Started E2-W dc_eeprom_writer_process\n");
+  LOG_INFO("- Started E2-W tb_eeprom_writer_process\n");
 
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
@@ -408,7 +468,7 @@ PROCESS_THREAD(dc_eeprom_writer_process, ev, data)
       /* We need to wake up again later and actually do the write, constantly
          polling ourselves will prevent the MCU from going back to sleep but we
          don't have etimers */
-      process_poll(&dc_eeprom_writer_process);
+      process_poll(&tb_eeprom_writer_process);
       PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
       // now = NRF_RTIMER_NOW();
       now = RTIMER_NOW();
@@ -427,11 +487,30 @@ PROCESS_THREAD(dc_eeprom_writer_process, ev, data)
     if(tb_tx_fifo_pos > 0) {
       /* Setup a periodic send timer. */
       //SPIKE_GPIO(30);
-      process_poll(&dc_eeprom_writer_process);
+      process_poll(&tb_eeprom_writer_process);
     }
     // SPIKE_GPIO(29);
 
   }
+
+  PROCESS_END();
+}
+
+/*---------------------------------------------------------------------------*/
+/* Border router process */
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(tb_br_process, ev, data)
+{
+  PROCESS_BEGIN();
+
+  LOG_INFO("- Started tb_br_process\n");
+
+#if BUILD_WITH_RPL_BORDER_ROUTER
+  rpl_border_router_init();
+  LOG_INFO("-- With RPL Border Router\n");
+#else
+  LOG_ERR("-- No Border Router process!!!\n");
+#endif /* BUILD_WITH_RPL_BORDER_ROUTER */
 
   PROCESS_END();
 }
@@ -458,6 +537,12 @@ print_traffic_pattern(volatile tb_pattern_t* p)
     {
       if(p->destination_id[i] !=0)
         LOG_INFO("     %d: %d\n", i, p->destination_id[i]);
+    }
+    LOG_INFO("  * Border Routers:\n");
+    for(i = 0; i < TB_MAX_BR; i++)
+    {
+      if(p->br_id[i] !=0)
+        LOG_INFO("     %d: %d\n", i, p->br_id[i]);
     }
     if(p->periodicity == 0)
     {

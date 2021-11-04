@@ -15,8 +15,6 @@
 
 /* In flash configuration struct, will be replaced by binary patching */
 volatile tb_config_t __attribute((section (".testbedConfigSection"))) dc_cfg = {0};
-// #undef TB_MAX_SRC_DEST
-// #define TB_MAX_SRC_DEST   4
 // volatile tb_config_t __attribute((section (".testbedConfigSection"))) dc_cfg = {3,{{2,{3,0,0,0},{1,2,4,0},8,0,0,5000,0,0,5000}}};
 /* Custom Testbed Configuration Struct Placeholder */
 #ifdef TB_CONF_CUSTOM_CONFIG

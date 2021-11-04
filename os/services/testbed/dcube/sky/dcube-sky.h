@@ -5,6 +5,7 @@
 #define EVENT_PIN             6
 
 #define TB_MAX_SRC_DEST       8
+#define TB_MAX_BR             0
 #define TB_NUMPATTERN         8
 
 

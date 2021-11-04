@@ -32,7 +32,14 @@
 #if TB_CONF_MAX_SRC_DEST
 #define TB_MAX_SRC_DEST               TB_CONF_MAX_SRC_DEST
 #else
-#define TB_MAX_SRC_DEST               50
+#define TB_MAX_SRC_DEST               48
+#endif
+
+/* Same number of border routers as dcube */
+#if TB_CONF_MAX_BR
+#define TB_MAX_BR                     TB_CONF_MAX_BR
+#else
+#define TB_MAX_BR                     48
 #endif
 
 #endif /* DCUBE_NULLTB_H */
