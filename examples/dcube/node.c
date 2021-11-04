@@ -40,15 +40,17 @@
 
 #include "contiki.h"
 #include "net/netstack.h"
+
+#if NETSTACK_CONF_WITH_NULLNET
 #include "net/nullnet/nullnet.h"
-#include <string.h>
-#include <stdio.h> /* For printf() */
+#endif
 
 /* MUST INCLUDE THESE FOR NODE IDS AND TESTBED PATTERNS */
 #include "services/deployment/deployment.h"
-#if CONF_TESTBED
+#if BUILD_WITH_TESTBED
+/* Take sources/destinations from the testbed conf */
 #include "services/testbed/testbed.h"
-#endif
+#endif /* BUILD_WITH_TESTBED*/
 
 /* Log configuration */
 #include "sys/log.h"
@@ -56,18 +58,39 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 /* Configuration */
-#define SEND_INTERVAL (8 * CLOCK_SECOND)
+#define SEND_INTERVAL (CLOCK_SECOND/2)
+
+static unsigned txcount = 0;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(dcube_example_process, "D-Cube Broadcast Example");
 AUTOSTART_PROCESSES(&dcube_example_process);
 
-#if CONF_TESTBED
 /*---------------------------------------------------------------------------*/
+static void
+send()
+{
+  LOG_INFO("Sending %u to ", txcount);
+  LOG_INFO_LLADDR(NULL);
+  LOG_INFO_("\n");
+
+  memcpy(nullnet_buf, &txcount, sizeof(txcount));
+  nullnet_len = sizeof(txcount);
+
+  NETSTACK_NETWORK.output(NULL);
+  txcount++;
+}
+
+/*---------------------------------------------------------------------------*/
+#if BUILD_WITH_TESTBED
 static void
 tesbed_callback(uint8_t *data, uint16_t len, uint8_t *dest, uint8_t n_dest)
 {
   LOG_INFO("Testbed callback...\n");
+  if(len > 0xFF) {
+    LOG_WARN("E2 data len is > uint8_t max!");
+  }
+  send();
 }
 #endif
 
@@ -76,11 +99,17 @@ void input_callback(const void *data, uint16_t len,
   const linkaddr_t *src, const linkaddr_t *dest)
 {
   if(len == sizeof(unsigned)) {
-    unsigned count;
-    memcpy(&count, data, sizeof(count));
-    LOG_INFO("Received %u from ", count);
+#if BUILD_WITH_TESTBED
+    testbed.push((uint8_t *)data, len);
+    testbed.poll_write();
+#endif /* BUILD_WITH_TESTBED */
+    unsigned rxcount;
+    memcpy(&rxcount, data, sizeof(rxcount));
+    LOG_INFO("Received %u from ", rxcount);
     LOG_INFO_LLADDR(src);
     LOG_INFO_(" (id=%u)\n", deployment_id_from_lladdr(src));
+  } else {
+    LOG_ERR("Unknown\n");
   }
 }
 
@@ -88,13 +117,12 @@ void input_callback(const void *data, uint16_t len,
 PROCESS_THREAD(dcube_example_process, ev, data)
 {
   static struct etimer periodic_timer;
-  static unsigned count = 0;
 
   PROCESS_BEGIN();
 
   LOG_INFO("Starting...\n");
 
-#if CONF_TESTBED
+#if BUILD_WITH_TESTBED
   /* Initialise the testbed. If this returns 0 we have no node type assigned. */
   testbed.init();
   /* Register a send function to send data on successful testbed read */
@@ -102,22 +130,19 @@ PROCESS_THREAD(dcube_example_process, ev, data)
 #endif
 
   /* Initialize NullNet */
-  nullnet_buf = (uint8_t *)&count;
-  nullnet_len = sizeof(count);
+  nullnet_buf = (uint8_t *)&txcount;
+  nullnet_len = sizeof(txcount);
   nullnet_set_input_callback(input_callback);
 
   etimer_set(&periodic_timer, SEND_INTERVAL);
   while(1) {
+    /* Send every timer */
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-    LOG_INFO("Sending %u to ", count);
-    LOG_INFO_LLADDR(NULL);
-    LOG_INFO_("\n");
-
-    memcpy(nullnet_buf, &count, sizeof(count));
-    nullnet_len = sizeof(count);
-
-    NETSTACK_NETWORK.output(NULL);
-    count++;
+#if BUILD_WITH_TESTBED
+    testbed.poll_read();
+#else
+    send();
+#endif
     etimer_reset(&periodic_timer);
   }
 
