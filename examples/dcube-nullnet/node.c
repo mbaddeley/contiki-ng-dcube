@@ -67,6 +67,26 @@ PROCESS(dcube_example_process, "D-Cube Broadcast Example");
 AUTOSTART_PROCESSES(&dcube_example_process);
 
 /*---------------------------------------------------------------------------*/
+#if BUILD_WITH_TESTBED
+static void
+tesbed_callback(uint8_t *data, uint16_t len, uint8_t *dest, uint8_t n_dest)
+{
+  uint8_t i, j;
+  LOG_INFO("D: TX ");
+  for(j = 0; j < len; j++) {
+    LOG_INFO_("%02x", ((uint8_t *)data)[j]);
+  };
+  LOG_INFO_(" l:%u s:%u d:", len, node_id);
+  for(i = 0; i < n_dest-1; i++) {
+    LOG_INFO_("%u,", dest[i]);
+  };
+  LOG_INFO_("%u\n", dest[n_dest-1]);
+  memcpy(nullnet_buf, data, len);
+  nullnet_len = len;
+  NETSTACK_NETWORK.output(NULL);
+}
+#else
+/*---------------------------------------------------------------------------*/
 static void
 send()
 {
@@ -80,34 +100,32 @@ send()
   NETSTACK_NETWORK.output(NULL);
   txcount++;
 }
-
-/*---------------------------------------------------------------------------*/
-#if BUILD_WITH_TESTBED
-static void
-tesbed_callback(uint8_t *data, uint16_t len, uint8_t *dest, uint8_t n_dest)
-{
-  LOG_INFO("Testbed callback...\n");
-  if(len > 0xFF) {
-    LOG_WARN("E2 data len is > uint8_t max!");
-  }
-  send();
-}
 #endif
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
   const linkaddr_t *src, const linkaddr_t *dest)
 {
-  if(len == sizeof(unsigned)) {
+  if(len) {
 #if BUILD_WITH_TESTBED
-    testbed.push((uint8_t *)data, len);
-    testbed.poll_write();
-#endif /* BUILD_WITH_TESTBED */
+    uint8_t i;
+    if(testbed.push((uint8_t *)data, len)) {
+      testbed.poll_write();
+      LOG_INFO("D: RX ");
+      for(i = 0; i < len; i++) {
+        LOG_INFO_("%02x", ((uint8_t *)data)[i]);
+      };
+      LOG_INFO_(" l:%u s:%-3u d:%-3u\n", len, deployment_id_from_lladdr(src), node_id);
+    } else {
+      LOG_ERR("Could not push to testbed!\n");
+    }
+#else
     unsigned rxcount;
     memcpy(&rxcount, data, sizeof(rxcount));
     LOG_INFO("Received %u from ", rxcount);
     LOG_INFO_LLADDR(src);
     LOG_INFO_(" (id=%u)\n", deployment_id_from_lladdr(src));
+#endif /* BUILD_WITH_TESTBED */
   } else {
     LOG_ERR("Unknown\n");
   }
