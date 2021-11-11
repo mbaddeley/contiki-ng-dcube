@@ -233,6 +233,7 @@ get_pattern_info()
       }
     }
 #else
+#if 0
     for(j = 0; j < TB_MAX_BR; j++) {
       // border routers
       if(dc_cfg.patterns[i].br_id[j]) {
@@ -246,6 +247,7 @@ get_pattern_info()
         found = 1;
       }
     }
+#endif
 #endif
 
   }
@@ -538,12 +540,14 @@ print_traffic_pattern(volatile tb_pattern_t* p)
       if(p->destination_id[i] !=0)
         LOG_INFO("     %d: %d\n", i, p->destination_id[i]);
     }
+#if 0
     LOG_INFO("  * Border Routers:\n");
     for(i = 0; i < TB_MAX_BR; i++)
     {
       if(p->br_id[i] !=0)
         LOG_INFO("     %d: %d\n", i, p->br_id[i]);
     }
+#endif
     if(p->periodicity == 0)
     {
       LOG_INFO("  * Aperiodic Upper: %lu\n", p->aperiodic_upper_bound);

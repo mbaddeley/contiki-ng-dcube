@@ -86,7 +86,7 @@ typedef struct
 	uint8_t traffic_pattern;                  // 0:unused, 1:p2p, 2:p2mp, 3:mp2p, 4: mp2mp
 	uint8_t source_id[TB_MAX_SRC_DEST];       // Only source_id[0] is used for p2p/p2mp
 	uint8_t destination_id[TB_MAX_SRC_DEST];  // Only destination_id[0] is used for p2p/mp2p
-#if CONTIKI_TARGET_NRF52840
+#if 0
 	uint8_t br_id[TB_MAX_BR];                 // Default max is 16
 #endif
 	uint8_t msg_length;                       // Message length in bytes in/to EEPROM
