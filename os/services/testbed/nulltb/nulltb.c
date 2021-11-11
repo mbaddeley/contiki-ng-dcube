@@ -61,9 +61,6 @@ config(void)
   dc_cfg.patterns[0].msg_length = TB_DATA_LEN;
   memcpy((uint8_t*) dc_cfg.patterns[0].source_id, tb_get_sources(), tb_get_n_src());
   memcpy((uint8_t*) dc_cfg.patterns[0].destination_id, tb_get_destinations(), tb_get_n_dest());
-#if CONTIKI_TARGET_NRF52840
-  memcpy((uint8_t*) dc_cfg.patterns[0].br_id, tb_get_brs(), tb_get_n_br());
-#endif
 }
 
 /*---------------------------------------------------------------------------*/

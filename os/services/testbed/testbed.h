@@ -51,11 +51,6 @@
 #define TB_N_FORWARDERS               sizeof(tb_forwarders)/sizeof(uint8_t)
 #endif
 
-#ifdef TB_CONF_BRS
-#define TB_BRS(...)                   static uint8_t tb_brs[] = {__VA_ARGS__};
-#define TB_N_BRS                      sizeof(tb_brs)/sizeof(uint8_t)
-#endif
-
 #ifndef TB_PATCHING
 #if !defined(TB_CONF_SOURCES) && !defined(TB_CONF_DESTINATIONS)
 #warning "WARN: TESTBED NO Patching and NO SRC=... or DST=... defined. Are you sure?..."
@@ -79,16 +74,13 @@
 #define TB_TX_FIFO_LEN    2
 #endif
 
-#define MAX_TB_PACKET_LEN 255               // BLE payload in MTU
+#define MAX_TB_PACKET_LEN 127
 
 typedef struct
 {
 	uint8_t traffic_pattern;                  // 0:unused, 1:p2p, 2:p2mp, 3:mp2p, 4: mp2mp
 	uint8_t source_id[TB_MAX_SRC_DEST];       // Only source_id[0] is used for p2p/p2mp
 	uint8_t destination_id[TB_MAX_SRC_DEST];  // Only destination_id[0] is used for p2p/mp2p
-#if CONTIKI_TARGET_NRF52840
-	uint8_t br_id[TB_MAX_BR];                 // Default max is 16
-#endif
 	uint8_t msg_length;                       // Message length in bytes in/to EEPROM
 	uint8_t msg_offsetH;                      // Message offset in bytes in EEPROM (high byte)
 	uint8_t msg_offsetL;                      // Message offset in bytes in EEPROM (low byte)
@@ -115,10 +107,10 @@ typedef struct {
   /* Empty */
 #ifdef TB_CONF_CUSTOM_CONFIG
   /* rpl-conf.h */
-  uint8_t    _RPL_DIO_INTERVAL_MIN;          // 12
+  uint8_t    _RPL_DIO_INTERVAL_MIN;              // 12
   /* rpl-mrhof.c */
-  uint16_t   _MAX_LINK_METRIC;               // 512
-  uint16_t   _RANK_THRESHOLD;                // 384
+  uint16_t   _MAX_LINK_METRIC;                   // 512
+  uint16_t   _RANK_THRESHOLD;                    // 384
 #else
   uint8_t    null;
 #endif
@@ -147,19 +139,17 @@ extern volatile custom_config_t __attribute((section (".customConfigSection"))) 
 #define NODE_TYPE_SOURCE      1
 #define NODE_TYPE_DESTINATION 2
 #define NODE_TYPE_FORWARDER   3
-#define NODE_TYPE_BR          4
 
 #define NODE_TYPE_TO_STR(type) \
  ((type == NODE_TYPE_NONE)        ? ("X") : \
   (type == NODE_TYPE_SOURCE)      ? ("S") : \
   (type == NODE_TYPE_DESTINATION) ? ("D") : \
-  (type == NODE_TYPE_FORWARDER)   ? ("F") : \
-  (type == NODE_TYPE_BR)          ? ("B") : ("U"))
+  (type == NODE_TYPE_FORWARDER)   ? ("F") : ("U"))
 
 /* Processes */
 // FIXME: Need to work out a sensible way of polling these from other processes
-PROCESS_NAME(tb_eeprom_writer_process);
-PROCESS_NAME(tb_eeprom_reader_process);
+PROCESS_NAME(dc_eeprom_writer_process);
+PROCESS_NAME(dc_eeprom_reader_process);
 
 
 extern volatile tb_config_t dc_cfg; // NB: defined in dcube-<target>.c
@@ -201,10 +191,8 @@ volatile tb_pattern_t  *tb_get_pattern();
 volatile tb_config_t   *tb_get_config();
 uint8_t                 tb_get_n_src();
 uint8_t                *tb_get_sources();
-uint8_t                 tb_get_n_dest();
 uint8_t                *tb_get_destinations();
-uint8_t                 tb_get_n_br();
-uint8_t                *tb_get_brs();
+uint8_t                 tb_get_n_dest();
 uint8_t                 tb_get_node_type();
 void 										tb_register_read_callback(tb_read_callback cb);
 

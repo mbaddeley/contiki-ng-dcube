@@ -1,6 +1,6 @@
 <?php
 
-$base = $argv[17] . "/api/";
+$base = "http://" .  $argv[17] . "/api/";
 $key = "?key=" . $argv[1];
 
 $act = "queue/create_job";
