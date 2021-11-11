@@ -1,6 +1,6 @@
 <?php
 
-$base = "http://" . $argv[6] . "/api/";
+$base = $argv[6] . "/api/";
 $key = "?key=" . $argv[1];
 
 $options = array(
