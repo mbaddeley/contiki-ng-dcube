@@ -100,7 +100,8 @@ function compile {
   echo "Compiling..."
   echo " > EXAMPLE: $PWD"
   echo " > TARGET: $TARGET"
-  echo " > MAKEARGS: $@"
+  # echo " > MAKEARGS: $@"
+  echo " > CMD: make clean TARGET=$TARGET && make -j16 TARGET=$TARGET BOARD=dk DEPLOYMENT=dcube $@"
 
 
   # set objcopy according to target
@@ -173,11 +174,7 @@ while (( "$#" )); do
       shift 2
       ;;
     -templab)
-      TEMPLAB=1
-      shift
-      ;;
-    -pattern)
-      PATTERN=$2
+      TEMPLAB=$2
       shift 2
       ;;
     -nopatch)
@@ -421,19 +418,19 @@ if [[ -v POST ]]; then
   [ -z "$MSG_DELTA" ]   && MSG_DELTA=0
 
   if [[ -v TEMPLAB ]]; then
-    TEMPLAB=$(cat templab.csv | base64 -w0)
+    TEMPLAB=$(cat $TEMPLAB | base64 -w0)
   else
     TEMPLAB=0
   fi
 
   [ -z "$PATCHING" ]     && PATCHING=1
-  MAKEARGS+=" PATCHING=$PATCHING"
   if [[ $PATCHING == 1 ]]; then
-    # Onlt add TESTBED=dcube and specify a dflt PATTERN if we are using patching
+    # Onlt add TESTBED=dcube if we are using patching
     [ -z "$TESTBED" ]    && TESTBED=dcube
-    [ -z "$PATTERN" ]    && PATTERN=0  # testbed.h :: 0 - NONE | 1 - P2P | 2 - P2MP | 3 - MP2P | 4 - MP2MP
-    MAKEARGS+=" TESTBED=$TESTBED PATTERN=$PATTERN"
+  else
+    [ -z "$TESTBED" ]    && TESTBED=nulltb
   fi
+  MAKEARGS+=" TESTBED=$TESTBED PATCHING=$PATCHING"
 
   [ -z "$SITE" ]    && SITE="https://iti-testbed.tugraz.at"
 
