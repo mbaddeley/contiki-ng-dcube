@@ -1,3 +1,11 @@
+/**
+ * \file
+ *         Testbed random number generator.
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com> *
+ */
+
+
 #ifndef TB_RAND_H_
 #define TB_RAND_H_
 

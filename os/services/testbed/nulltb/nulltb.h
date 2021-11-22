@@ -1,3 +1,11 @@
+/**
+ * \file
+ *         NULL testbed configuration (NULLTB).
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com> *
+ */
+
+
 #ifndef DCUBE_NULLTB_H
 #define DCUBE_NULLTB_H
 

@@ -1,3 +1,10 @@
+/**
+ * \file
+ *         Testbed main file.
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com>
+ */
+
 #include "stdio.h"
 
 #include "contiki.h"
@@ -6,6 +13,10 @@
 
 #include "net/packetbuf.h"
 #include "lib/memb.h"
+
+#if BUILD_WITH_RPL_BORDER_ROUTER
+#include "services/rpl-border-router/rpl-border-router.h"
+#endif
 
 #include "services/testbed/testbed.h"
 
@@ -42,7 +53,7 @@ static uint8_t tb_brs[TB_MAX_BR]               = {0};
 #endif
 
 /* Externs */
-uint8_t tb_pattern_id, tb_node_type, tb_msg_len, tb_traffic_pattern;
+uint8_t tb_pattern_id, tb_node_type, tb_node_is_br, tb_msg_len, tb_traffic_pattern;
 uint8_t tb_num_src, tb_num_dst, tb_num_fwd, tb_num_br;
 
 /* Buffers */
@@ -228,12 +239,11 @@ get_pattern_info()
       tb_num_br++;
       // check to see we are participating
       if(tb_brs[j] == node_id) {
-        found = 1;
-        tb_node_type = NODE_TYPE_BR;
+        tb_node_is_br = 1;
       }
     }
 #else
-#if 0
+#if TESTBED_WITH_BORDER_ROUTER
     for(j = 0; j < TB_MAX_BR; j++) {
       // border routers
       if(dc_cfg.patterns[i].br_id[j]) {
@@ -242,9 +252,8 @@ get_pattern_info()
       }
       if(dc_cfg.patterns[i].br_id[j] == node_id) {
         // then check if we are a border router
-        tb_node_type = NODE_TYPE_BR;
+        tb_node_is_br = 1;
         ret = i;
-        found = 1;
       }
     }
 #endif
@@ -300,21 +309,30 @@ init()
   LOG_INFO("- Init I2C...\n");
   eeprom.init();
 
+  /* Data pattern and length */
   tb_traffic_pattern = dc_cfg.patterns[tb_pattern_id].traffic_pattern;
   tb_msg_len = dc_cfg.patterns[tb_pattern_id].msg_length;
 
+  /* Node type */
   if(tb_node_type == NODE_TYPE_SOURCE) {
     // only source nodes need to handle the event GPIO
     process_start(&tb_eeprom_reader_process, NULL);
   } else if(tb_node_type == NODE_TYPE_DESTINATION) {
     // destinations need to write received packets
     process_start(&tb_eeprom_writer_process, NULL);
-  } else if(tb_node_type == NODE_TYPE_BR) {
-    // border routers must kick off the BR process (whatever that might be)
-    process_start(&tb_br_process, NULL);
   } else {
     // else we are a forwarder
   }
+  LOG_INFO("- Node type will be... %s\n", NODE_TYPE_TO_STR(tb_node_type));
+
+#if TESTBED_WITH_BORDER_ROUTER
+  /* Border routers */
+  if(tb_node_is_br) {
+    // border routers must kick off the BR process (whatever that might be)
+    process_start(&tb_br_process, NULL);
+  }
+  LOG_INFO("- Node is BR... %u\n", tb_node_is_br);
+#endif
 
   // LOG_INFO("- E2 Settle Time... %u\n", GLOSSY_RTIMER_TO_MS(EEPROM_SETTLE_TIME));
   print_config(&dc_cfg);
@@ -540,7 +558,7 @@ print_traffic_pattern(volatile tb_pattern_t* p)
       if(p->destination_id[i] !=0)
         LOG_INFO("     %d: %d\n", i, p->destination_id[i]);
     }
-#if 0
+#if TESTBED_WITH_BORDER_ROUTER
     LOG_INFO("  * Border Routers:\n");
     for(i = 0; i < TB_MAX_BR; i++)
     {

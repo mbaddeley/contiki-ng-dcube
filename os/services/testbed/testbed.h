@@ -1,3 +1,10 @@
+/**
+ * \file
+ *         Testbed main file.
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com>
+ */
+
 #ifndef TESTBED_H_
 #define TESTBED_H_
 
@@ -86,7 +93,7 @@ typedef struct
 	uint8_t traffic_pattern;                  // 0:unused, 1:p2p, 2:p2mp, 3:mp2p, 4: mp2mp
 	uint8_t source_id[TB_MAX_SRC_DEST];       // Only source_id[0] is used for p2p/p2mp
 	uint8_t destination_id[TB_MAX_SRC_DEST];  // Only destination_id[0] is used for p2p/mp2p
-#if 0
+#if TESTBED_WITH_BORDER_ROUTER
 	uint8_t br_id[TB_MAX_BR];                 // Default max is 16
 #endif
 	uint8_t msg_length;                       // Message length in bytes in/to EEPROM
@@ -147,14 +154,12 @@ extern volatile custom_config_t __attribute((section (".customConfigSection"))) 
 #define NODE_TYPE_SOURCE      1
 #define NODE_TYPE_DESTINATION 2
 #define NODE_TYPE_FORWARDER   3
-#define NODE_TYPE_BR          4
 
 #define NODE_TYPE_TO_STR(type) \
  ((type == NODE_TYPE_NONE)        ? ("X") : \
   (type == NODE_TYPE_SOURCE)      ? ("S") : \
   (type == NODE_TYPE_DESTINATION) ? ("D") : \
-  (type == NODE_TYPE_FORWARDER)   ? ("F") : \
-  (type == NODE_TYPE_BR)          ? ("B") : ("U"))
+  (type == NODE_TYPE_FORWARDER)   ? ("F") : ("U"))
 
 /* Processes */
 // FIXME: Need to work out a sensible way of polling these from other processes
@@ -165,7 +170,7 @@ PROCESS_NAME(tb_eeprom_reader_process);
 extern volatile tb_config_t dc_cfg; // NB: defined in dcube-<target>.c
 
 /* eeprom pattern information */
-extern uint8_t tb_pattern_id, tb_node_type, tb_num_src, tb_num_dst, tb_msg_len;
+extern uint8_t tb_pattern_id, tb_node_type, tb_node_is_br, tb_num_src, tb_num_dst, tb_msg_len;
 
 /* GPIO flag */
 extern volatile uint8_t gpio_event;

@@ -1,3 +1,10 @@
+/**
+ * \file
+ *         D-Cube testbed configuration (sky).
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com> *
+ */
+
 #ifndef DCUBE_SKY_H_
 #define DCUBE_SKY_H_
 

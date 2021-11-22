@@ -1,3 +1,10 @@
+/**
+ * \file
+ *         D-Cube testbed configuration (sky).
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com> *
+ */
+
 #include "stdio.h"
 
 #include "contiki.h"

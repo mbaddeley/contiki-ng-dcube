@@ -1,3 +1,10 @@
+/**
+ * \file
+ *         Testbed random number generator.
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com> *
+ */
+
 #include <contiki.h>
 #include "lib/random.h"
 #include "testbed-rand.h"

@@ -1,3 +1,10 @@
+/**
+ * \file
+ *         Testbed configuration file (i.e. D-Cube, NULLTB, ...).
+ * \author
+ *         Michael Baddeley <michael.g.baddeley@gmail.com> *
+ */
+
 #ifndef TESTBED_CONF_H_
 #define TESTBED_CONF_H_
 
