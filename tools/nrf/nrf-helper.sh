@@ -164,7 +164,8 @@ if [[ -v OUT ]]; then
     if [ -d ~/logs ]; then rm -Rf ~/logs; fi
     mkdir -p ~/logs
   fi
-  for port in /dev/ttyACM*; do
+  nrfjprog --com | while read row; do
+    port=${row:13:12}
     sn=`udevadm info -q property -a -p $(udevadm info -q path -n $port) | grep serial | grep -oP '(?<=").*(?=")' | grep "0006" | cut -c 4-`
     for i in $(seq 0 $len); do
       if [ ${sn_arr[$i]} == $sn ]; then
