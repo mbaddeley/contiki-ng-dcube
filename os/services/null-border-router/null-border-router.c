@@ -66,18 +66,24 @@ set_prefix_64(uip_ipaddr_t *prefix_64)
 {
   int i;
   uint8_t state;
-  static uip_ipaddr_t root_ipaddr;
+  static uip_ipaddr_t ipaddr;
   const uip_ipaddr_t *default_prefix;
   prefix_set = 1;
   /* No routing layer, so set the IP prefix_64 here */
   default_prefix = uip_ds6_default_prefix();
-  if(prefix_64 == NULL) {
-    uip_ip6addr_copy(&root_ipaddr, default_prefix);
-  } else {
-    memcpy(&root_ipaddr, prefix_64, 8);
-  }
-  uip_ds6_set_addr_iid(&root_ipaddr, &uip_lladdr);
-  uip_ds6_addr_add(&root_ipaddr, 0, ADDR_AUTOCONF);
+  // NB: If we follow the way taken in RPL BR, then we end up with a loop.
+  //     packets destined for fd00::1 end up being seen as "on-link" and so
+  //     get sent out again over the radio interface and not the fallback
+  //     interface. There's probably some better way to solve this but it works
+  //     for now.
+  // if(prefix_64 == NULL) {
+    uip_ip6addr_copy(&ipaddr, default_prefix);
+  // } else {
+  //   memcpy(&ipaddr, prefix_64, 8);
+  // }
+  uip_ds6_prefix_add(&ipaddr, UIP_DEFAULT_PREFIX_LEN, 0, 0, 0, 0);
+  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
   LOG_INFO("IPv6 addresses:\n");
   for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     state = uip_ds6_if.addr_list[i].state;

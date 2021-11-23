@@ -34,6 +34,7 @@
 #define READ_INTERVAL		            (CLOCK_SECOND/2)
 
 const uip_ipaddr_t *default_prefix;
+// static const uip_ipaddr_t default_route;
 static uip_ipaddr_t ipaddr;
 static struct etimer periodic_timer;
 static struct simple_udp_connection udp_conn;
@@ -98,9 +99,6 @@ PROCESS_THREAD(dcube_null_udp_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  int i;
-  uint8_t state;
-
   LOG_INFO("Starting...\n");
 
   /* Initialise the testbed. If this returns 0 we have no node type assigned
@@ -112,32 +110,6 @@ PROCESS_THREAD(dcube_null_udp_process, ev, data)
   /* Register a send function to send data on successful testbed read */
   tb_register_read_callback(&tesbed_callback);
 
-
-  // #define ICMP6_ECHO_REQUEST              128  /**< Echo request */
-  // #define ICMP6_ECHO_REPLY                129  /**< Echo reply */
-  //
-  // #define ICMP6_RS                        133  /**< Router Solicitation */
-  // #define ICMP6_RA                        134  /**< Router Advertisement */
-  // #define ICMP6_NS                        135  /**< Neighbor Solicitation */
-  // #define ICMP6_NA                        136  /**< Neighbor advertisement */
-
-  /* Give ourselves IPv6 addresses */
-  default_prefix = uip_ds6_default_prefix();
-  uip_ip6addr_copy(&ipaddr, default_prefix);
-  uip_ds6_prefix_add(&ipaddr, UIP_DEFAULT_PREFIX_LEN, 0, 0, 0, 0);
-  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
-  LOG_INFO("IPv6 addresses:\n");
-  for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
-    state = uip_ds6_if.addr_list[i].state;
-    if(uip_ds6_if.addr_list[i].isused &&
-       (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
-      LOG_INFO("-- ");
-      LOG_INFO_6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
-      LOG_INFO_("\n");
-    }
-  }
-
 #if TESTBED_WITH_BORDER_ROUTER
   if(tb_node_is_br) {
     leds_on(LEDS_ALL);
@@ -146,6 +118,33 @@ PROCESS_THREAD(dcube_null_udp_process, ev, data)
     PROCESS_NAME(webserver_nogui_process);
     process_start(&webserver_nogui_process, NULL);
   #endif /* BORDER_ROUTER_CONF_WEBSERVER */
+  } else {
+    uint8_t i;
+    uint8_t state;
+    /* Give ourselves IPv6 addresses */
+    default_prefix = uip_ds6_default_prefix();
+    uip_ip6addr_copy(&ipaddr, default_prefix);
+    uip_ds6_prefix_add(&ipaddr, UIP_DEFAULT_PREFIX_LEN, 0, 0, 0, 0);
+    uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
+    LOG_INFO("IPv6 addresses:\n");
+    for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
+      state = uip_ds6_if.addr_list[i].state;
+      if(uip_ds6_if.addr_list[i].isused &&
+         (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
+        LOG_INFO("-- ");
+        LOG_INFO_6ADDR(&uip_ds6_if.addr_list[i].ipaddr);
+        LOG_INFO_("\n");
+      }
+    }
+    /* Add the BR (from the testbed) as a default route */
+    uint8_t *brs = tb_get_brs();
+    deployment_iid_from_id(&ipaddr, brs[0]);
+    // uip_ipaddr_copy(&default_route, &ipaddr);
+    uip_ds6_defrt_add(&ipaddr,0);
+    LOG_INFO("Default route:");
+    LOG_INFO_6ADDR(&ipaddr);
+    LOG_INFO_("\n");
   }
 #endif
 
