@@ -1,4 +1,4 @@
-TARGET=nrf52840 BOARD=dk TESTBED=nulltb DEPLOYMENT=nulltb WITH_BORDER_ROUTER=1 BR=<my_br_id>
+make clean TARGET=nrf52840 && make node.upload-all -j16 TARGET=nrf52840 BOARD=dk TESTBED=nulltb DEPLOYMENT=nulltb WITH_BORDER_ROUTER=1 BR=2
 
 sudo sysctl -w net.ipv6.conf.all.forwarding=1
 sudo ip route add fd00::/64 via fd01::MY_BR_MAC dev tun0
