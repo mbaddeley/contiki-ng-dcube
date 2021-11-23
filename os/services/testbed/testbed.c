@@ -16,13 +16,15 @@
 
 #if BUILD_WITH_RPL_BORDER_ROUTER
 #include "services/rpl-border-router/rpl-border-router.h"
+#elif BUILD_WITH_NULL_BORDER_ROUTER
+#include "services/null-border-router/null-border-router.h"
 #endif
 
 #include "services/testbed/testbed.h"
 
 #include "sys/log.h"
 #define LOG_MODULE "TESTBED"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_LEVEL LOG_LEVEL_INFO
 
 #define UNUSED(x) (void)(x)
 
@@ -528,6 +530,9 @@ PROCESS_THREAD(tb_br_process, ev, data)
 #if BUILD_WITH_RPL_BORDER_ROUTER
   rpl_border_router_init();
   LOG_INFO("-- With RPL Border Router\n");
+#elif BUILD_WITH_NULL_BORDER_ROUTER
+  null_border_router_init();
+  LOG_INFO("-- With NULL Border Router\n");
 #else
   LOG_ERR("-- No Border Router process!!!\n");
 #endif /* BUILD_WITH_RPL_BORDER_ROUTER */
@@ -543,6 +548,7 @@ print_traffic_pattern(volatile tb_pattern_t* p)
 {
   uint8_t i;
   // NB: If TB_MAX_SRC_DEST is not the same as the testbed expects, patching will FAIL!
+  LOG_INFO("  * My Node ID: %u\n", node_id);
   LOG_INFO("  * Traffic pattern: %s (%u)\n", PATTERN_TO_STR(p->traffic_pattern), p->traffic_pattern);
   if( (p->traffic_pattern > 0) && (p->traffic_pattern <= 4))
   {
