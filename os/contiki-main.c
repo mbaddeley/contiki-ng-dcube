@@ -52,6 +52,7 @@
 #include "net/app-layer/coap/coap-engine.h"
 #include "net/app-layer/snmp/snmp.h"
 #include "services/rpl-border-router/rpl-border-router.h"
+#include "services/null-border-router/null-border-router.h"
 #include "services/orchestra/orchestra.h"
 #include "services/shell/serial-shell.h"
 #include "services/simple-energest/simple-energest.h"
@@ -137,6 +138,10 @@ main(void)
 #if BUILD_WITH_RPL_BORDER_ROUTER
   rpl_border_router_init();
   LOG_DBG("With RPL Border Router\n");
+#endif /* BUILD_WITH_RPL_BORDER_ROUTER */
+#if BUILD_WITH_NULL_BORDER_ROUTER
+  null_border_router_init();
+  LOG_DBG("With NULL Border Router\n");
 #endif /* BUILD_WITH_RPL_BORDER_ROUTER */
 #endif /* !BUILD_WITH_TESTBED */
 
