@@ -30,6 +30,21 @@
 #define CSMA_CONF_MAX_PACKET_PER_NEIGHBOR          QUEUEBUF_CONF_NUM
 
 /*---------------------------------------------------------------------------*/
+/* Border Router */
+/*---------------------------------------------------------------------------*/
+#if TESTBED_WITH_BORDER_ROUTER
+#ifndef WEBSERVER_CONF_CFS_CONNS
+#define WEBSERVER_CONF_CFS_CONNS                   2
+#endif
+#ifndef BORDER_ROUTER_CONF_WEBSERVER
+#define BORDER_ROUTER_CONF_WEBSERVER               1
+#endif
+#if BORDER_ROUTER_CONF_WEBSERVER
+#define UIP_CONF_TCP                               1
+#endif
+#endif /* TESTBED_WITH_BORDER_ROUTER */
+
+/*---------------------------------------------------------------------------*/
 /* Testbed */
 /*---------------------------------------------------------------------------*/
 #define LOG_CONF_LEVEL_RPL                         LOG_LEVEL_NONE
