@@ -70,6 +70,7 @@ set_prefix_64(uip_ipaddr_t *prefix_64)
   const uip_ipaddr_t *default_prefix;
   prefix_set = 1;
   /* No routing layer, so set the IP prefix_64 here */
+  LOG_INFO("FISME: STATICALLY setting prefix fd00. Ignore SLIP:\n");
   default_prefix = uip_ds6_default_prefix();
   // NB: If we follow the way taken in RPL BR, then we end up with a loop.
   //     packets destined for fd00::1 end up being seen as "on-link" and so
