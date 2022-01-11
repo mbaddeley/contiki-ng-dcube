@@ -76,6 +76,7 @@ function create_job {
 }
 
 function list_jobs {
+  echo "$KEY $1 $2 $3 $4 $SITE"
   php -f dc_list_jobs.php $KEY $1 $2 $3 $4 $SITE
 }
 
@@ -86,7 +87,7 @@ function get_job {
 }
 
 function get_job_description {
-  DESC=$(php -f dc_get_job_description.php $1)
+  DESC=$(php -f dc_get_job_description.php $KEY $1 $SITE)
 }
 
 function delete_job {
@@ -175,6 +176,10 @@ while (( "$#" )); do
       ;;
     -templab)
       TEMPLAB=$2
+      shift 2
+      ;;
+    -pattern)
+      PATTERN=$2
       shift 2
       ;;
     -nopatch)
@@ -336,6 +341,9 @@ fi
 
 echo "$KEY"
 
+# D-CUBE site (e.g., Graz)
+[ -z "$SITE" ]    && SITE="https://iti-testbed.tugraz.at"
+
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 echo "Positional ARGS: "$@
@@ -432,8 +440,6 @@ if [[ -v POST ]]; then
   fi
   MAKEARGS+=" TESTBED=$TESTBED PATCHING=$PATCHING"
 
-  [ -z "$SITE" ]    && SITE="https://iti-testbed.tugraz.at"
-
   if [[ -v START_LAYOUT && -v END_LAYOUT ]]; then
     echo " > POST layout suite..."
     compile $MAKEARGS;
@@ -513,7 +519,6 @@ if [[ -v GET ]]; then
   fi
   # by sequence of job numbers
   if [[ -v JOBS ]]; then
-    echo "GET logs ${arr[0]} to ${arr[-1]}..."
     if ! [[ $START_JOB =~ ^[0-9]+$ || $END_JOB =~ ^[0-9]+$ ]]; then
       echo "Error: Incorrect job number!"
       exit 1
@@ -521,6 +526,7 @@ if [[ -v GET ]]; then
     for ((i=$START_JOB; i<=$END_JOB; i++)) do
       arr=($i "${arr[@]}")
     done
+    echo "GET logs ${arr[0]} to ${arr[-1]}..."
   fi
 
   # Get LOGS...
@@ -557,10 +563,10 @@ if [[ -v GET ]]; then
     for i in "${arr[@]}"; do
       echo " > GET metrics for job: $i "
       if [ "$FIRST" -eq "1" ]; then
-        get_job $i 0 1;
+        get_job $i 1 1;
         FIRST=0
       else
-        get_job $i 1 0;
+        get_job $i 0 0;
       fi
     done
     pretty_csv dcube_results_readable.csv

@@ -1,5 +1,6 @@
 *.pub
 *.csv
 *.conf
+*.pdf
 batch.sh
 results/*

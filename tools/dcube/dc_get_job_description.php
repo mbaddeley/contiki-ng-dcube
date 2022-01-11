@@ -3,7 +3,6 @@
 // api key
 $base = $argv[3] . "/api/";
 $key = "?key=" . $argv[1];
-
 $act = "queue/" . $argv[2];
 
 $options = array(
@@ -15,6 +14,7 @@ $options = array(
 
 $context  = stream_context_create($options);
 $result = @file_get_contents($base . $act . $key, false, $context);
+
 
 if($result === FALSE) {
   // NB: We read the stdout in the bash to get the description, so we can't

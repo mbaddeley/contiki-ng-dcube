@@ -43,7 +43,7 @@ echo "=====================" . PHP_EOL;
 $result = file_get_contents($url, false, $context);
 $response = json_decode($result, true);
 
-// print_r($response);
+print_r($response);
 
 /*---------------------------------------------------------------------------*/
 # Convert to CSV
