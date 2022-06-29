@@ -10,7 +10,6 @@
 #include "contiki.h"
 #include "node-id.h"
 #include "sys/rtimer.h"
-
 #include "net/packetbuf.h"
 #include "lib/memb.h"
 
@@ -174,19 +173,16 @@ get_pattern_info()
   uint8_t i, j, ret = 0, found = 0;
 
   for(i = 0; i < TB_NUMPATTERN; i++) {
-    if(!dc_cfg.patterns[i].traffic_pattern) {
-      continue;
-    }
 #ifdef TB_CONF_SOURCES
-      LOG_WARN(" > Using preset SRCs (x%u)\n", TB_N_SOURCES);
-      for(j=0; j < TB_N_SOURCES; j++) {
-        tb_num_src++;
-        // check to see we are participating
-        if(tb_sources[j] == node_id) {
-          found = 1;
-          tb_node_type = NODE_TYPE_SOURCE;
-        }
+    LOG_WARN(" > Using preset SRCs (x%u)\n", TB_N_SOURCES);
+    for(j=0; j < TB_N_SOURCES; j++) {
+      tb_num_src++;
+      // check to see we are participating
+      if(tb_sources[j] == node_id) {
+        found = 1;
+        tb_node_type = NODE_TYPE_SOURCE;
       }
+    }
 #else
     for(j = 0; j < TB_MAX_SRC_DEST; j++) {
       if(dc_cfg.patterns[i].source_id[j]) {
@@ -260,7 +256,24 @@ get_pattern_info()
     }
 #endif
 #endif
-
+    /* If no traffic pattern has been set (e.g. when using nulltb) then figure
+       it out using the # of sources and destinations */
+    if(!dc_cfg.patterns[i].traffic_pattern) {
+      LOG_WARN(" > No traffic_pattern! Setting using # of SRC/DST\n");
+      /* NB: Testbed supports > 1 pattern but nulltb doesn't!!! */
+      if (tb_num_src == 1) {
+        dc_cfg.patterns[0].traffic_pattern = P2P;
+      } else if(tb_num_src >= tb_num_dst) {
+        dc_cfg.patterns[0].traffic_pattern = MP2P;
+      } else if(tb_num_src < tb_num_dst) {
+        dc_cfg.patterns[0].traffic_pattern = P2MP;
+      } else {
+        LOG_WARN("Unknown traffic_pattern! (s:%u d:%u)", tb_num_src, tb_num_dst);
+      }
+    }
+    LOG_INFO(" > traffic pattern is %s (s:%u d:%u br:%u)\n",
+      PATTERN_TO_STR(dc_cfg.patterns[0].traffic_pattern),
+      tb_num_src, tb_num_dst, tb_num_br);
   }
 #ifdef TB_CONF_FORWARDERS
   LOG_WARN(" > Using preset FWDs (x%u)\n", TB_N_FORWARDERS);
@@ -339,10 +352,10 @@ init()
   // LOG_INFO("- E2 Settle Time... %u\n", GLOSSY_RTIMER_TO_MS(EEPROM_SETTLE_TIME));
   print_config(&dc_cfg);
   print_custom_config();
-  LOG_INFO("Finished %s testbed setup for pattern id %u: " \
-    "pattern: %s msg_len:%u node_type: %s num src: %u num dst: %u, num_br: %u\n",
+  LOG_INFO("%s initialized - pattern id %u: " \
+    "pattern: %s msg_len:%u node_type:%s s:%u d:%u br:%u f:%u\n",
     TB_TO_STR(TESTBED), tb_pattern_id, PATTERN_TO_STR(tb_traffic_pattern), tb_msg_len,
-    NODE_TYPE_TO_STR(tb_node_type), tb_num_src, tb_num_dst, tb_num_br);
+    NODE_TYPE_TO_STR(tb_node_type), tb_num_src, tb_num_dst, tb_num_br, tb_num_fwd);
 
   return 1;
 }
@@ -423,17 +436,18 @@ PROCESS_THREAD(tb_eeprom_reader_process, ev, data)
 
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
-
+    // DEBUG_GPIO_ON(29);
     if(!eeprom.event()) {
+      // DEBUG_GPIO_OFF(29);
       continue;
     }
 
     // LOG_DBG("E2-R %u/%u\n", tb_rx_fifo_pos, TB_RX_FIFO_LEN);
 
     if(tb_rx_fifo_pos == TB_RX_FIFO_LEN) {
+      // DEBUG_GPIO_OFF(29);
       continue;
     }
-
     // we have been polled by the GPIO and need to read data from the EEPROM
     eeprom.read(tb_rx_fifo[tb_rx_fifo_pos++]);
     LOG_DBG("E2-R++ %u\n", tb_rx_fifo_pos);
@@ -444,8 +458,8 @@ PROCESS_THREAD(tb_eeprom_reader_process, ev, data)
     if(testbed.pop(&rx_data, &rx_pkt_len)) {
       testbed.read_callback(rx_data, rx_pkt_len, tb_destinations, tb_num_dst);
     }
+    // DEBUG_GPIO_OFF(29);
   }
-
   PROCESS_END();
 }
 
@@ -464,7 +478,6 @@ PROCESS_THREAD(tb_eeprom_writer_process, ev, data)
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_POLL);
 
-    // SPIKE_GPIO(29);
     /* Check we have data to write*/
     if(!tb_tx_fifo_pos) {
       continue;
@@ -508,10 +521,8 @@ PROCESS_THREAD(tb_eeprom_writer_process, ev, data)
 
     if(tb_tx_fifo_pos > 0) {
       /* Setup a periodic send timer. */
-      //SPIKE_GPIO(30);
       process_poll(&tb_eeprom_writer_process);
     }
-    // SPIKE_GPIO(29);
 
   }
 

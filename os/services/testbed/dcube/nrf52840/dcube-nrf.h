@@ -4,7 +4,7 @@
  * \author
  *         Michael Baddeley <michael.g.baddeley@gmail.com> *
  */
- 
+
 #ifndef DCUBE_NRF_H_
 #define DCUBE_NRF_H_
 

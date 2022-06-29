@@ -9,6 +9,9 @@
 #ifndef DCUBE_NULLTB_H
 #define DCUBE_NULLTB_H
 
+/* Don't want to do this in actual deployments, but for here it's ok */
+#define LOG_CONF_WITH_COLOR           1
+
 /* NULLTB period in seconds (0 is aperiodic) */
 #if TB_CONF_NULLTB_PERIOD
 #define TB_PERIOD                     (CLOCK_SECOND * TB_CONF_NULLTB_PERIOD)

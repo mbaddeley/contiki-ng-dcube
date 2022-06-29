@@ -17,7 +17,7 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "NULLTB-E2"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_LEVEL LOG_LEVEL_INFO
 
 #define RAND_UP_TO(n) (int)(((n) * (uint32_t)random_rand()) / RANDOM_RAND_MAX)
 
@@ -53,18 +53,6 @@ config(void)
 {
 #if CONTIKI_TARGET_NRF52840
   dc_cfg.node_id = node_id;
-#endif
-  /* NB: Testbed supports > 1 pattern but nulltb doesn't!!! */
-#if TB_PATTERN
-  dc_cfg.patterns[0].traffic_pattern = TB_PATTERN;
-#else
-  if(tb_num_src > tb_num_dst) {
-    dc_cfg.patterns[0].traffic_pattern = MP2P;
-  } else if(tb_num_src < tb_num_dst) {
-    dc_cfg.patterns[0].traffic_pattern = P2MP;
-  } else {
-    dc_cfg.patterns[0].traffic_pattern = P2P;
-  }
 #endif
   dc_cfg.patterns[0].msg_length = TB_DATA_LEN;
   memcpy((uint8_t*) dc_cfg.patterns[0].source_id, tb_get_sources(), tb_get_n_src());
@@ -136,7 +124,6 @@ schedule_read() {
       print_division(next_send, CLOCK_SECOND);
       LOG_DBG_("s  %lu\n", next_send);
   #endif
-
     etimer_set(&timer, next_send);
 }
 
