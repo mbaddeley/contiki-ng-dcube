@@ -52,8 +52,9 @@ function combine_data($scenario, $queue) {
     $row['proto'] = $queue['protocol'];
     $row['description'] = $queue['description'];
     $row['jamming'] = $queue['jamming'];
+    $row['layout'] = $queue['layout'];
     $row['len'] = $queue['message_length'];
-    $row['periodicity'] = $queue['periodicity'];
+    // $row['periodicity'] = $queue['periodicity'];
     array_push($result, $row);
   }
   return $result;
@@ -91,6 +92,8 @@ if ($argv[6]) {
 $act = "/scenario/" . $argv[2];
 $result = file_get_contents($base . $act . $key . $params, false, $context);
 $scenario = json_decode($result, true);
+
+// print_r($scenario);
 
 # Simplify the key for CSV headers
 $scenario = array_map(function($scenario) {
@@ -148,31 +151,56 @@ if ((count($result) > 1) && is_array($result[0])) {
   $result = $result[0];
 }
 
+
+
 # Create a reduced version of this for a readable CSV we can print to bash
 $result_readable = array(
     'id' => $result['id'],
     'name' => $result['name'],
-    'proto' => $result['proto'],
-    'pdr' => $result['reliability'],
-    'lat_ms' => round(floatval($result['lat_combined'])/1000, 2),
-    'energy_J' => round($result['energy_total'], 2),
-    'jam' => $result['jamming'],
+    'reliability' => $result['reliability'],
+    'latency' => round(floatval($result['lat_combined'])/1000, 2),
+    'energy' => round($result['energy_total'], 2),
+    'jamming' => $result['jamming'],
+    'layout' => $result['layout'],
     'len' => $result['len'],
-    'period' => $result['periodicity'],
+    'description' => $result['description'],
+);
+
+$result_plotting = array(
+    'id' => $result['id'],
+    'name' => $result['name'],
+    'layout' => $result['layout'],
+    'jamming' => $result['jamming'],
+    'len' => $result['len'],
+    'reliability' => $result['reliability'],
+    'sent' => $result['sent'],
+    'received' => $result['received'],
+    'correct' => $result['correct'],
+    'missed' => $result['missed'],
+    'superfluous' => $result['superfluous'],
+    'causality' => $result['causality'],
+    'lat_combined' => $result['lat_combined'],
+    'lat_mean' => $result['lat_mean'],
+    'lat_median' => $result['lat_median'],
+    'lat_90' => $result['lat_90'],
+    'lat_95' => $result['lat_95'],
+    'lat_99' => $result['lat_99'],
+    'energy_total' => $result['energy_total'],
+    'energy_setup' => $result['energy_setup'],
     'description' => $result['description'],
 );
 
 /*---------------------------------------------------------------------------*/
 # Convert to CSV
 echo "Write results to CSV... APPEND=" . $argv[3] ." WRITE_HEADERS=" . $argv[4] . PHP_EOL;
-$csv = print_r(str_putcsv($result, $argv[4]), true);
-$csv_readable = print_r(str_putcsv($result_readable, $argv[3]), true);
+$csv_plotting = print_r(str_putcsv($result_plotting, $argv[4]), true);
+$csv_readable = print_r(str_putcsv($result_readable, $argv[4]), true);
 # Write to file
-if ($argv[2]) {
-  file_put_contents('dcube_results.csv', $csv, FILE_APPEND);
+if ($argv[3]) {
+  file_put_contents('dcube_results_plotting.csv', $csv_plotting, FILE_APPEND);
   file_put_contents('dcube_results_readable.csv', $csv_readable, FILE_APPEND);
 } else {
-  file_put_contents('dcube_results.csv', $csv);
+  file_put_contents('dcube_results_plotting.csv', $csv_plotting);
   file_put_contents('dcube_results_readable.csv', $csv_readable);
 }
 

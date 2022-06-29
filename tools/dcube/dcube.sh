@@ -339,8 +339,6 @@ else
   KEY=`cat key.pub`
 fi
 
-echo "$KEY"
-
 # D-CUBE site (e.g., Graz)
 [ -z "$SITE" ]    && SITE="https://iti-testbed.tugraz.at"
 
@@ -368,7 +366,7 @@ echo $ARGS
 if [[ -v SHA ]]; then
   # add git SHA to descriptor
   SHA=$(git rev-parse --short HEAD)
-  DESC=$SHA"_"$DESC$ARGS
+  DESC=$DESC$ARGS"_"$SHA
 fi
 
 if [[ -z $POST && -z $DELETE && -z $GET && -z $LIST && -z $PLOT ]]; then
@@ -417,7 +415,7 @@ if [[ -v POST ]]; then
 
   [ -z "$SERIAL" ]      && SERIAL=1
   [ -z "$LAYOUT" ]      && LAYOUT=1
-  [ -z "$TRAFFIC" ]     && TRAFFIC=5000
+  [ -z "$TRAFFIC" ]     && TRAFFIC=0
   [ -z "$DATALEN" ]     && DATALEN=64
   [ -z "$DUR" ]         && DUR=120
   [ -z "$JAMMING" ]     && JAMMING=0
@@ -476,6 +474,8 @@ fi
 # --------------------------------------------------------------------------- #
 if [[ -v GET ]]; then
 
+  [ -z "$APPEND" ]      && APPEND=0
+
   if [[ (-z $LOGS && -z $RESULTS) ]]; then
     echo 'Error: Must choose to GET logs or results! (-l -r)'
     exit 1
@@ -484,14 +484,6 @@ if [[ -v GET ]]; then
   if [[ (-z $JOBS && -z $DAYS && -z $LAST && -z $NAME) ]]; then
     echo 'Error: Must define which jobs to get! (--job=* or --days=* or --last=* or -n "name")'
     exit 1
-  fi
-
-  if [[ -z "$APPEND" ]]; then
-    APPEND=0
-    WRITE_HEADERS=1
-  else
-    APPEND=1
-    WRITE_HEADERS=0
   fi
 
   # by days or name
@@ -559,14 +551,13 @@ if [[ -v GET ]]; then
   # Get RESULTS summary...
   if [[ -v RESULTS ]]; then
     # get jobs
-    FIRST=1
     for i in "${arr[@]}"; do
       echo " > GET metrics for job: $i "
-      if [ "$FIRST" -eq "1" ]; then
-        get_job $i 1 1;
-        FIRST=0
+      if [ "$APPEND" -eq "0" ]; then
+        get_job $i 0 1;
+        APPEND=1
       else
-        get_job $i 0 0;
+        get_job $i 1 0;
       fi
     done
     pretty_csv dcube_results_readable.csv

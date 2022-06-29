@@ -7,7 +7,7 @@ $act = "queue/create_job";
 
 $job = array(
     "protocol"        => intval($argv[2]),
-    "layout"          => $argv[3],  // NB: Bug in API means this is a str
+    "layout"          => $argv[3], 
     "periodicity"     => intval($argv[4]),
     "message_length"  => intval($argv[5]),
     "patching"        => intval($argv[6]),
@@ -15,6 +15,7 @@ $job = array(
     "description"     => $argv[8],
     "duration"        => intval($argv[9]),
     "logs"            => intval($argv[10]),
+    // "jamming"         => $argv[11], // jamming is a STR in Graz
     "jamming"         => intval($argv[11]),
     "priority"        => boolval($argv[12]),
     "file"            => base64_encode(file_get_contents($argv[13]))
@@ -35,9 +36,6 @@ if(sizeof($overrides)) {
 
 $payload = json_encode($job);
 
-// print_r($payload);
-
-
 $options = array(
     'http' => array(
     'method'  => 'POST',
@@ -47,13 +45,11 @@ $options = array(
 );
 
 $context  = stream_context_create($options);
-
 $result = file_get_contents($base . $act . $key, false, $context);
 $response = json_decode($result, true);
 
 echo "Job created, got response:" . PHP_EOL;
 var_dump($result);
-// print_r($response);
 echo "Job ID: " . $response['id'] . PHP_EOL;
 
 return $response['id'];
