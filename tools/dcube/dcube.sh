@@ -444,7 +444,7 @@ if [[ -v POST ]]; then
     for i in $(seq $START_LAYOUT  1 $END_LAYOUT); do
       LAYOUT=$i;
       echo " ... POST job $DESC to layout $LAYOUT ..."
-      create_job "_LAYOUT_$i";
+      create_job;
       sleep 1
     done
     exit 1
